@@ -2406,13 +2406,17 @@ function saveImgbbKey(){
   const k=document.getElementById('imgbb-key-inp').value.trim();
   const st=document.getElementById('imgbb-key-status');
   if(!k){ st.textContent='⚠ Clé vide'; st.style.color='#ff8844'; return; }
-  localStorage.setItem('imgbb_key',k);
-  st.textContent='✔ Clé sauvegardée !'; st.style.color='#00ff88';
+  /* Stocker dans ALLDB (sauvegardé sur GitHub) ET localStorage (fallback) */
+  ALLDB.__imgbb_key = k;
+  localStorage.setItem('imgbb_key', k);
+  save(); /* Sauvegarde sur GitHub — clé disponible sur tous les appareils */
+  st.textContent='✔ Clé sauvegardée sur GitHub !'; st.style.color='#00ff88';
   setTimeout(()=>{ st.textContent=''; },3000);
 }
 
 function getImgbbKey(){
-  return localStorage.getItem('imgbb_key')||'';
+  /* Priorité : ALLDB (GitHub = multi-appareils) > localStorage (local) */
+  return (ALLDB && ALLDB.__imgbb_key) || localStorage.getItem('imgbb_key') || '';
 }
 
 /* Charge la clé dans le champ quand on ouvre le panneau */
