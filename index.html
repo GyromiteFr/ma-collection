@@ -71,293 +71,239 @@ body{
   100% { transform: scale(1.00) translateY(0px); }
 }
 
-/* Couche de colorisation par-dessus le fond — très légère pour ne pas écraser l'image */
 #bg-overlay{
   position:fixed; inset:0; z-index:1; pointer-events:none;
-  background:
-    /* Léger assombrissement en bas pour la lisibilité des portails */
-    linear-gradient(
-      to bottom,
-      transparent 0%,
-      transparent 55%,
-      rgba(0,0,12,.65) 80%,
-      rgba(0,0,8,.88) 100%
-    );
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 60%,
+    rgba(0,0,8,.75) 85%,
+    rgba(0,0,5,.92) 100%
+  );
 }
 
 
 /* ═══════════════════════════════════════════════════
-   ARCADE HALL — 3D PERSPECTIVE SCENE
-   Fond transparent — l'image de fond passe à travers
+   ROUTE ANIMÉE — Canvas Tron qui défile
 ═══════════════════════════════════════════════════ */
-#scene {
-  position:fixed; inset:0; z-index:2; pointer-events:none; overflow:hidden;
-  background: transparent;
-  /* SCENE MASQUÉE — image de fond utilisée à la place */
-  display: none;
+#road-canvas {
+  position: fixed;
+  top: 42%;
+  bottom: 22%;
+  left: 0; right: 0;
+  width: 100%;
+  height: 36%;
+  z-index: 2;
+  pointer-events: none;
 }
 
-/* ── CEILING ── */
-.arc-ceiling {
-  position:absolute; top:0; left:0; right:0;
-  height:42%;
-  background: transparent;
+/* ═══════════════════════════════════════════════════
+   NÉONS SCINTILLANTS — halos sur les éléments de l'image
+   6 zones ciblées avec des animations désynchronisées
+   pour un vrai effet d'enseignes qui clignotent
+═══════════════════════════════════════════════════ */
+
+/* Halo central — titre COLLECTION VINTAGE 80s 90s */
+#neon-title {
+  position: fixed;
+  left: 15%; right: 15%;
+  top: 1%; height: 38%;
+  z-index: 3;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse 70% 55% at 52% 35%,
+      rgba(255, 0, 200, 0.38) 0%,
+      rgba(180, 0, 255, 0.20) 40%,
+      rgba(255, 0, 180, 0.06) 65%,
+      transparent 80%
+    ),
+    radial-gradient(ellipse 45% 35% at 50% 20%,
+      rgba(0, 220, 255, 0.25) 0%,
+      rgba(0, 180, 255, 0.10) 50%,
+      transparent 72%
+    );
+  animation: flicker-title 2.8s ease-in-out infinite;
 }
 
-/* Ceiling neon strips */
-.arc-ceiling::before {
-  content:'';
-  position:absolute; bottom:0; left:0; right:0; height:3px;
+/* Panneau COLLECTION (gauche) */
+#neon-left {
+  position: fixed;
+  left: 0; top: 32%; bottom: 35%;
+  width: 32%;
+  z-index: 3;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(ellipse 90% 65% at 20% 50%,
+    rgba(0, 240, 255, 0.50) 0%,
+    rgba(0, 200, 255, 0.25) 35%,
+    rgba(0, 240, 255, 0.08) 60%,
+    transparent 78%
+  );
+  animation: flicker-left 2.1s ease-in-out infinite;
+}
+
+/* Panneau VINTAGE 80s (droite) */
+#neon-right {
+  position: fixed;
+  right: 0; top: 32%; bottom: 35%;
+  width: 35%;
+  z-index: 3;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(ellipse 90% 65% at 80% 50%,
+    rgba(255, 0, 200, 0.50) 0%,
+    rgba(200, 0, 255, 0.25) 35%,
+    rgba(255, 0, 180, 0.08) 60%,
+    transparent 78%
+  );
+  animation: flicker-right 2.6s ease-in-out infinite 0.6s;
+}
+
+/* Lune (haut droit) */
+#neon-moon {
+  position: fixed;
+  right: 5%; top: 1%;
+  width: 22%; height: 28%;
+  z-index: 3;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(ellipse 60% 60% at 68% 28%,
+    rgba(210, 230, 255, 0.40) 0%,
+    rgba(180, 210, 255, 0.18) 45%,
+    transparent 68%
+  );
+  animation: flicker-moon 3.8s ease-in-out infinite 1.2s;
+}
+
+/* Skyline / bâtiments — fenêtres qui flashent */
+#neon-city {
+  position: fixed;
+  left: 0; right: 0;
+  top: 12%; height: 32%;
+  z-index: 3;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse 7% 14% at 11% 70%,  rgba(255, 0, 200, 0.45) 0%, transparent 70%),
+    radial-gradient(ellipse 5% 10% at 22% 55%,  rgba(0,  200, 255, 0.40) 0%, transparent 70%),
+    radial-gradient(ellipse 4% 9%  at 17% 35%,  rgba(180, 0, 255, 0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 7% 14% at 89% 70%,  rgba(255, 0, 200, 0.45) 0%, transparent 70%),
+    radial-gradient(ellipse 5% 10% at 78% 55%,  rgba(0,  200, 255, 0.40) 0%, transparent 70%),
+    radial-gradient(ellipse 4% 9%  at 83% 35%,  rgba(180, 0, 255, 0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 9% 16% at 40% 75%,  rgba(220, 0, 255, 0.30) 0%, transparent 70%),
+    radial-gradient(ellipse 9% 16% at 62% 75%,  rgba(255, 0, 150, 0.30) 0%, transparent 70%);
+  animation: flicker-city 2.2s ease-in-out infinite 0.3s;
+}
+
+/* Ligne d'horizon lumineuse */
+#neon-horizon {
+  position: fixed;
+  left: 0; right: 0;
+  top: calc(42% - 2px);
+  height: 4px;
+  z-index: 4;
+  pointer-events: none;
   background: linear-gradient(90deg,
     transparent 0%,
-    rgba(0,200,255,.15) 10%,
-    rgba(0,200,255,.8) 30%,
-    #fff 50%,
-    rgba(0,200,255,.8) 70%,
-    rgba(0,200,255,.15) 90%,
+    rgba(0, 240, 255, 0.5) 5%,
+    rgba(255, 255, 255, 0.95) 30%,
+    white 50%,
+    rgba(255, 255, 255, 0.95) 70%,
+    rgba(0, 240, 255, 0.5) 95%,
     transparent 100%
   );
-  box-shadow: 0 0 8px 2px rgba(0,200,255,.4), 0 0 30px 8px rgba(0,200,255,.2);
-}
-
-/* ── FLOOR — Checkerboard in perspective ── */
-.arc-floor {
-  position:absolute; bottom:0; left:-20%; right:-20%;
-  height:55%;
-  perspective: 500px;
-  transform-origin: top center;
-}
-
-.arc-floor-grid {
-  position:absolute; inset:0;
-  transform: rotateX(65deg);
-  transform-origin: top center;
-  background-image:
-    linear-gradient(rgba(0,200,255,.15) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,200,255,.15) 1px, transparent 1px),
-    repeating-conic-gradient(#0a0c18 0% 25%, #060810 25% 50%);
-  background-size: 8% 6%, 8% 6%, 16% 12%;
-  background-position: 0 0, 0 0, 0 0;
-  filter:
-    drop-shadow(0 0 1px #fff)
-    drop-shadow(0 0 4px rgba(0,200,255,.8))
-    drop-shadow(0 0 12px rgba(0,200,255,.4));
-  animation: floor-scroll 1.2s linear infinite;
-}
-@keyframes floor-scroll {
-  0%   { background-position: 0 0,     0 0,     0 0 }
-  100% { background-position: 0 6%,    0 6%,    0 12% }
-}
-
-/* Floor fade at sides */
-.arc-floor::before {
-  content:''; position:absolute; inset:0; z-index:2;
-  background: linear-gradient(to right, rgba(0,0,0,.7) 0%, transparent 18%, transparent 82%, rgba(0,0,0,.7) 100%);
-}
-/* Floor fade top (horizon) */
-.arc-floor::after {
-  content:''; position:absolute; inset:0; z-index:3;
-  background: linear-gradient(to bottom, rgba(0,0,0,.4) 0%, transparent 30%);
-}
-
-/* ── HORIZON LINE ── */
-.arc-horizon {
-  position:absolute; left:0; right:0;
-  top:41%; height:2px; z-index:5;
-  background: linear-gradient(90deg,
-    transparent 0%, rgba(0,200,255,.3) 10%,
-    #fff 50%, rgba(0,200,255,.3) 90%, transparent 100%
-  );
   box-shadow:
-    0 0 3px 1px #fff,
-    0 0 14px 4px rgba(0,200,255,.8),
-    0 0 50px 12px rgba(0,200,255,.4),
-    0 0 100px 25px rgba(0,150,255,.2);
+    0 0 8px 3px white,
+    0 0 25px 8px rgba(0, 240, 255, 0.9),
+    0 0 70px 20px rgba(0, 240, 255, 0.5),
+    0 0 140px 40px rgba(255, 0, 200, 0.3);
+  animation: horizon-pulse 2s ease-in-out infinite;
 }
 
-/* ── VANISHING POINT GLOW ── */
-.arc-vp {
-  position:absolute;
-  left:50%; top:41%;
-  transform:translate(-50%, -50%);
-  width:clamp(200px,40vw,500px);
-  height:clamp(100px,20vw,250px);
-  background: radial-gradient(ellipse at center,
-    rgba(0,220,255,.35) 0%,
-    rgba(0,150,255,.15) 30%,
-    transparent 70%
-  );
-  z-index:4;
-  animation: vp-pulse 4s ease-in-out infinite;
-}
-@keyframes vp-pulse {
-  0%,100%{ opacity:.7; transform:translate(-50%,-50%) scale(1); }
-  50%    { opacity:1;  transform:translate(-50%,-50%) scale(1.08); }
+/* ── Animations de scintillement ── */
+
+/* Titre : double flash rapide puis longue pause */
+@keyframes flicker-title {
+  0%   { opacity: 0.55; }
+  8%   { opacity: 1; }
+  10%  { opacity: 0.20; }   /* coupure */
+  12%  { opacity: 0.95; }
+  40%  { opacity: 0.65; }
+  52%  { opacity: 1; }
+  54%  { opacity: 0.15; }   /* coupure */
+  56%  { opacity: 0.90; }
+  85%  { opacity: 0.70; }
+  100% { opacity: 0.55; }
 }
 
-/* ── ARCADE CABINETS — Left & Right walls ── */
-.arc-cabinets {
-  position:absolute; inset:0; z-index:3;
-  pointer-events:none;
+/* Panneau gauche : scintillement lent avec flash */
+@keyframes flicker-left {
+  0%   { opacity: 0.45; filter: blur(0px); }
+  20%  { opacity: 1;    filter: blur(1px); }
+  22%  { opacity: 0.10; filter: blur(2px); }   /* coupure */
+  24%  { opacity: 0.90; filter: blur(0px); }
+  60%  { opacity: 0.55; filter: blur(.5px); }
+  80%  { opacity: 1;    filter: blur(0px); }
+  100% { opacity: 0.45; filter: blur(0px); }
 }
 
-/* Cabinet row — base */
-.cab-row {
-  position:absolute; bottom:calc(55% - 2px);
-  display:flex; align-items:flex-end; gap:0;
-}
-.cab-row-left  { left:0;   transform-origin:right bottom; transform:perspective(600px) rotateY(22deg) skewY(-2deg); }
-.cab-row-right { right:0;  transform-origin:left bottom;  transform:perspective(600px) rotateY(-22deg) skewY(2deg); }
-
-/* Individual cabinet */
-.cab {
-  width:clamp(50px,5vw,80px);
-  height:clamp(80px,9vw,140px);
-  position:relative; flex-shrink:0;
-  display:flex; flex-direction:column;
-  margin:0 2px;
-}
-/* Cabinet body */
-.cab-body {
-  flex:1; border-radius:4px 4px 0 0;
-  border:1px solid rgba(0,180,255,.25);
-  position:relative; overflow:hidden;
-}
-/* Screen glow inside cabinet */
-.cab-screen {
-  position:absolute; top:15%; left:10%; right:10%;
-  height:45%; border-radius:3px;
-  animation: screen-flicker 3s ease-in-out infinite;
-}
-@keyframes screen-flicker {
-  0%,95%,100%{ opacity:1; }
-  96%{ opacity:.7; }
-  97%{ opacity:1; }
-  98%{ opacity:.5; }
-  99%{ opacity:1; }
-}
-.cab-base {
-  height:12px; border-radius:0 0 3px 3px;
-  background:rgba(0,100,200,.15);
-  border:1px solid rgba(0,150,255,.2); border-top:none;
-}
-/* Neon trim on cabinet */
-.cab::after {
-  content:'';
-  position:absolute; inset:0;
-  border-radius:4px 4px 3px 3px;
-  box-shadow: inset 0 0 10px rgba(0,200,255,.08);
+/* Panneau droit : rythme différent */
+@keyframes flicker-right {
+  0%   { opacity: 0.40; }
+  15%  { opacity: 0.85; }
+  35%  { opacity: 1; }
+  37%  { opacity: 0.08; }   /* coupure */
+  39%  { opacity: 0.92; }
+  65%  { opacity: 0.50; }
+  82%  { opacity: 0.95; }
+  84%  { opacity: 0.12; }   /* coupure */
+  86%  { opacity: 0.88; }
+  100% { opacity: 0.40; }
 }
 
-/* Cabinet color variants */
-.cab:nth-child(1) .cab-body{background:linear-gradient(160deg,#050a14,#08112a);}
-.cab:nth-child(1) .cab-screen{background:radial-gradient(ellipse,rgba(255,50,50,.7),rgba(180,0,0,.3));box-shadow:0 0 10px rgba(255,50,50,.6);}
-.cab:nth-child(2) .cab-body{background:linear-gradient(160deg,#050e0a,#081a10);}
-.cab:nth-child(2) .cab-screen{background:radial-gradient(ellipse,rgba(0,255,80,.6),rgba(0,150,40,.2));box-shadow:0 0 10px rgba(0,255,80,.5);}
-.cab:nth-child(3) .cab-body{background:linear-gradient(160deg,#0a0514,#120828);}
-.cab:nth-child(3) .cab-screen{background:radial-gradient(ellipse,rgba(180,50,255,.7),rgba(100,0,200,.3));box-shadow:0 0 10px rgba(180,50,255,.6);}
-.cab:nth-child(4) .cab-body{background:linear-gradient(160deg,#080c05,#141a08);}
-.cab:nth-child(4) .cab-screen{background:radial-gradient(ellipse,rgba(200,255,0,.6),rgba(100,150,0,.2));box-shadow:0 0 10px rgba(200,255,0,.5);}
-.cab:nth-child(5) .cab-body{background:linear-gradient(160deg,#05080a,#080e18);}
-.cab:nth-child(5) .cab-screen{background:radial-gradient(ellipse,rgba(0,200,255,.7),rgba(0,100,200,.3));box-shadow:0 0 10px rgba(0,200,255,.6);}
-.cab:nth-child(6) .cab-body{background:linear-gradient(160deg,#0a0505,#1a0808);}
-.cab:nth-child(6) .cab-screen{background:radial-gradient(ellipse,rgba(255,120,0,.6),rgba(200,50,0,.2));box-shadow:0 0 10px rgba(255,120,0,.5);}
-
-/* Neon strip on top of cabinets */
-.cab-neon-strip {
-  position:absolute; left:0; right:0; height:3px;
-  top:-2px; border-radius:1px;
+/* Lune : respiration douce */
+@keyframes flicker-moon {
+  0%,100% { opacity: 0.45; }
+  30%     { opacity: 0.85; }
+  55%     { opacity: 0.55; }
+  70%     { opacity: 1; }
 }
 
-/* ── CEILING NEON TUBES ── */
-.arc-neon-tube {
-  position:absolute; top:10%;
-  height:4px; border-radius:2px;
-  animation: tube-buzz 5s ease-in-out infinite;
-}
-@keyframes tube-buzz {
-  0%,92%,100%{ opacity:1; }
-  93%{ opacity:.4; }
-  94%{ opacity:1; }
-  95%{ opacity:.3; }
-  96%{ opacity:1; }
-}
-.arc-neon-tube:nth-child(1){
-  left:15%; width:20%;
-  background:rgba(0,200,255,.8);
-  box-shadow:0 0 8px 3px rgba(0,200,255,.5), 0 0 20px 6px rgba(0,150,255,.3);
-  animation-delay: .5s;
-}
-.arc-neon-tube:nth-child(2){
-  left:40%; width:20%;
-  background:rgba(220,80,255,.8);
-  box-shadow:0 0 8px 3px rgba(220,80,255,.5), 0 0 20px 6px rgba(180,0,255,.3);
-  animation-delay: 1.2s;
-}
-.arc-neon-tube:nth-child(3){
-  left:65%; width:20%;
-  background:rgba(0,200,255,.8);
-  box-shadow:0 0 8px 3px rgba(0,200,255,.5), 0 0 20px 6px rgba(0,150,255,.3);
-  animation-delay: 2s;
+/* Ville : flashs aléatoires rapides */
+@keyframes flicker-city {
+  0%   { opacity: 0.40; }
+  10%  { opacity: 0.80; }
+  12%  { opacity: 0.15; }
+  14%  { opacity: 0.75; }
+  40%  { opacity: 0.50; }
+  55%  { opacity: 0.90; }
+  57%  { opacity: 0.20; }
+  59%  { opacity: 0.85; }
+  75%  { opacity: 0.45; }
+  90%  { opacity: 1; }
+  92%  { opacity: 0.10; }
+  94%  { opacity: 0.80; }
+  100% { opacity: 0.40; }
 }
 
-/* ── NEON SIGNS ── */
-.arc-sign {
-  position:absolute; z-index:6;
-  font-family:'Press Start 2P',monospace;
-  text-transform:uppercase;
-  animation: sign-glow 3s ease-in-out infinite;
+/* Horizon : pulse lumineux */
+@keyframes horizon-pulse {
+  0%,100% {
+    box-shadow:
+      0 0 8px 3px white,
+      0 0 25px 8px rgba(0,240,255,.9),
+      0 0 70px 20px rgba(0,240,255,.5),
+      0 0 140px 40px rgba(255,0,200,.3);
+  }
+  50% {
+    box-shadow:
+      0 0 12px 4px white,
+      0 0 40px 14px rgba(0,240,255,1),
+      0 0 110px 35px rgba(255,0,200,.7),
+      0 0 220px 60px rgba(150,0,255,.4);
+  }
 }
-@keyframes sign-glow {
-  0%,100%{ filter:brightness(1); }
-  50%    { filter:brightness(1.3) drop-shadow(0 0 8px currentColor); }
-}
-
-/* ── FLOATING PARTICLES ── */
-.arc-particles { position:absolute; inset:0; z-index:4; overflow:hidden; pointer-events:none; }
-.arc-p {
-  position:absolute; border-radius:50%;
-  animation:arc-rise linear infinite; opacity:0;
-}
-@keyframes arc-rise {
-  0%  { opacity:0;  transform:translateY(110vh) scale(.3); }
-  8%  { opacity:.8; }
-  92% { opacity:.4; }
-  100%{ opacity:0;  transform:translateY(-10vh) scale(1.2); }
-}
-
-/* ── SCANLINES ── */
-.arc-scanlines {
-  display:none; /* masqué — CRT sur image */
-}
-
-/* ── VIGNETTE ── */
-.arc-vignette {
-  display:none; /* masqué — vignette gérée par bg-overlay */
-}
-
-/* ── HUD CORNERS ── */
-.hud-corner { display:none; } /* masqués — remplacés par l'image */
-.hud-corner svg { width:100%; height:100%; }
-.hud-tl{top:10px;left:10px;}
-.hud-tr{top:10px;right:10px;transform:scaleX(-1);}
-.hud-bl{bottom:10px;left:10px;transform:scaleY(-1);}
-.hud-br{bottom:10px;right:10px;transform:scale(-1);}
-
-/* CRT grain */
-.arc-grain {
-  position:fixed; inset:0; z-index:20; pointer-events:none; opacity:.5;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
-  background-size:200px 200px;
-  animation:grain 1s steps(1) infinite;
-}
-@keyframes grain {
-  0%{background-position:0 0} 25%{background-position:-40px 15px}
-  50%{background-position:25px -25px} 75%{background-position:-15px 35px}
-}
-
-/* ── TRANSITION THEME ── */
-#scene *{ transition: background .8s ease, box-shadow .8s ease, filter .8s ease; }
 
 /* ═══════════════════════════════════════════════════
    LAYOUT
@@ -1291,6 +1237,20 @@ footer{text-align:center;margin-top:44px;padding-top:16px;border-top:1px solid r
 }
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
 
+
+to   { background-position: 0 100vh; }
+}
+
+/* ═══════════════════════════════════
+   PORTE DES ÉTOILES — animation portail
+═══════════════════════════════════ */
+#stargate-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+  display: none;
+}
 </style>
 </head>
 <body>
@@ -1299,109 +1259,23 @@ footer{text-align:center;margin-top:44px;padding-top:16px;border-top:1px solid r
 <div id="bg-image"></div>
 <div id="bg-overlay"></div>
 
-<!-- ═════════════ ARCADE SCENE ═════════════ -->
-<div id="scene">
+<!-- Route Tron animée — canvas en perspective -->
+<canvas id="road-canvas"></canvas>
+<!-- Porte des étoiles — portail d'ouverture de collection -->
+<canvas id="stargate-canvas"></canvas>
 
-  <!-- Ceiling -->
-  <div class="arc-ceiling">
-    <div class="arc-neon-tube"></div>
-    <div class="arc-neon-tube"></div>
-    <div class="arc-neon-tube"></div>
-  </div>
+<!-- Néons scintillants sur les éléments de l'image -->
+<div id="neon-title"></div>
+<div id="neon-left"></div>
+<div id="neon-right"></div>
+<div id="neon-moon"></div>
+<div id="neon-city"></div>
+<div id="neon-horizon"></div>
 
-  <!-- Arcade Cabinets — Left wall -->
-  <div class="arc-cabinets">
-    <div class="cab-row cab-row-left">
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#ff3030;box-shadow:0 0 6px #ff3030,0 0 14px rgba(255,50,50,.4)"></div>
-        <div class="cab-body"><div class="cab-screen"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#00ff50;box-shadow:0 0 6px #00ff50,0 0 14px rgba(0,255,80,.4)"></div>
-        <div class="cab-body"><div class="cab-screen"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#cc40ff;box-shadow:0 0 6px #cc40ff,0 0 14px rgba(180,50,255,.4)"></div>
-        <div class="cab-body"><div class="cab-screen"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#c8ff00;box-shadow:0 0 6px #c8ff00,0 0 14px rgba(200,255,0,.4)"></div>
-        <div class="cab-body"><div class="cab-screen"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#00d4ff;box-shadow:0 0 6px #00d4ff,0 0 14px rgba(0,200,255,.4)"></div>
-        <div class="cab-body"><div class="cab-screen"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#ff7800;box-shadow:0 0 6px #ff7800,0 0 14px rgba(255,120,0,.4)"></div>
-        <div class="cab-body"><div class="cab-screen"></div></div>
-        <div class="cab-base"></div>
-      </div>
-    </div>
 
-    <!-- Arcade Cabinets — Right wall (mirror) -->
-    <div class="cab-row cab-row-right">
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#00d4ff;box-shadow:0 0 6px #00d4ff,0 0 14px rgba(0,200,255,.4)"></div>
-        <div class="cab-body"><div class="cab-screen" style="background:radial-gradient(ellipse,rgba(0,200,255,.7),rgba(0,100,200,.3));box-shadow:0 0 10px rgba(0,200,255,.6)"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#ff3030;box-shadow:0 0 6px #ff3030,0 0 14px rgba(255,50,50,.4)"></div>
-        <div class="cab-body"><div class="cab-screen" style="background:radial-gradient(ellipse,rgba(255,50,50,.7),rgba(180,0,0,.3));box-shadow:0 0 10px rgba(255,50,50,.6)"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#c8ff00;box-shadow:0 0 6px #c8ff00,0 0 14px rgba(200,255,0,.4)"></div>
-        <div class="cab-body"><div class="cab-screen" style="background:radial-gradient(ellipse,rgba(200,255,0,.6),rgba(100,150,0,.2));box-shadow:0 0 10px rgba(200,255,0,.5)"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#cc40ff;box-shadow:0 0 6px #cc40ff,0 0 14px rgba(180,50,255,.4)"></div>
-        <div class="cab-body"><div class="cab-screen" style="background:radial-gradient(ellipse,rgba(180,50,255,.7),rgba(100,0,200,.3));box-shadow:0 0 10px rgba(180,50,255,.6)"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#00ff50;box-shadow:0 0 6px #00ff50,0 0 14px rgba(0,255,80,.4)"></div>
-        <div class="cab-body"><div class="cab-screen" style="background:radial-gradient(ellipse,rgba(0,255,80,.6),rgba(0,150,40,.2));box-shadow:0 0 10px rgba(0,255,80,.5)"></div></div>
-        <div class="cab-base"></div>
-      </div>
-      <div class="cab">
-        <div class="cab-neon-strip" style="background:#ff7800;box-shadow:0 0 6px #ff7800,0 0 14px rgba(255,120,0,.4)"></div>
-        <div class="cab-body"><div class="cab-screen" style="background:radial-gradient(ellipse,rgba(255,120,0,.6),rgba(200,50,0,.2));box-shadow:0 0 10px rgba(255,120,0,.5)"></div></div>
-        <div class="cab-base"></div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Floor -->
-  <div class="arc-floor">
-    <div class="arc-floor-grid"></div>
-  </div>
 
-  <!-- Horizon & vanishing point -->
-  <div class="arc-horizon"></div>
-  <div class="arc-vp"></div>
 
-  <!-- Floating particles -->
-  <div class="arc-particles" id="arcParticles"></div>
-
-  <!-- Overlays -->
-  <div class="arc-grain"></div>
-  <div class="arc-scanlines"></div>
-  <div class="arc-vignette"></div>
-</div>
-
-<!-- HUD Corners -->
-<div class="hud-corner hud-tl"><svg viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 28 L2 2 L28 2" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="square"/><circle cx="2" cy="2" r="2.5" fill="#00d4ff"/><line x1="2" y1="2" x2="14" y2="14" stroke="#00d4ff" stroke-width=".8" opacity=".4"/></svg></div>
-<div class="hud-corner hud-tr"><svg viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 28 L2 2 L28 2" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="square"/><circle cx="2" cy="2" r="2.5" fill="#00d4ff"/></svg></div>
-<div class="hud-corner hud-bl"><svg viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 28 L2 2 L28 2" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="square"/><circle cx="2" cy="2" r="2.5" fill="#00d4ff"/></svg></div>
-<div class="hud-corner hud-br"><svg viewBox="0 0 55 55" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 28 L2 2 L28 2" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="square"/><circle cx="2" cy="2" r="2.5" fill="#00d4ff"/></svg></div>
 
 <div id="collBgImg"></div>
 
@@ -1619,32 +1493,16 @@ function applyTheme(u){
   r.setProperty('--uspeed',u.speed||'1.4s');
 
   // Update horizon glow color
-  const hz=document.getElementById('arcHorizon')||document.querySelector('.arc-horizon');
-  if(hz){
-    hz.style.boxShadow=`0 0 3px 1px #fff,0 0 14px 4px ${u.c1},0 0 50px 12px ${hexA(u.c1,.45)},0 0 100px 25px ${hexA(u.c1,.25)}`;
-    hz.style.background=`linear-gradient(90deg,transparent 0%,${hexA(u.c1,.3)} 10%,#fff 50%,${hexA(u.c1,.3)} 90%,transparent 100%)`;
-  }
+  // arc-horizon désactivé
 
   // Update VP glow
-  const vp=document.querySelector('.arc-vp');
-  if(vp) vp.style.background=`radial-gradient(ellipse at center,${hexA(u.c1,.38)} 0%,${hexA(u.c2,.15)} 30%,transparent 70%)`;
+  // arc-vp désactivé
 
-  // Update floor grid color
-  const fg=document.querySelector('.arc-floor-grid');
-  if(fg){
-    fg.style.backgroundImage=`
-      linear-gradient(${hexA(u.c1,.18)} 1px, transparent 1px),
-      linear-gradient(90deg, ${hexA(u.c1,.18)} 1px, transparent 1px),
-      repeating-conic-gradient(${hexA(u.c1,.06)} 0% 25%, rgba(4,6,14,1) 25% 50%)
-    `;
-    fg.style.filter=`drop-shadow(0 0 1px #fff) drop-shadow(0 0 5px ${u.c1}) drop-shadow(0 0 14px ${hexA(u.c1,.5)})`;
-  }
+  // arc-floor-grid désactivé — utilise la route Tron CSS à la place
+  // const fg=document.querySelector('.arc-floor-grid'); // DISABLED
 
   // Update ceiling glow
-  const ceiling=document.querySelector('.arc-ceiling');
-  if(ceiling){
-    ceiling.style.backgroundImage=`linear-gradient(to bottom,#000 0%,${hexA(u.c1,.03)} 60%,${hexA(u.c1,.06)} 100%)`;
-  }
+  // arc-ceiling désactivé
 
   // Update HUD corners
   document.querySelectorAll('.hud-corner svg').forEach(svg=>{
@@ -1654,7 +1512,7 @@ function applyTheme(u){
     });
   });
 
-  buildParticles(u.c1);
+  // buildParticles désactivé
 }
 
 function buildParticles(col){
@@ -1997,30 +1855,33 @@ function changeUnivLogo(evt,id){
 //  OPEN / CLOSE UNIVERSE
 // ══════════════════════════════════════════
 function openUniv(id){
-  curId=id;
-  const u=getUniv(id);if(!u)return;
-  if(!ALLDB[id])ALLDB[id]={sections:[{id:'default',name:'Ma collection',color:u.c1}],figurines:[]};
-  DB=ALLDB[id];
-  applyTheme(u);
+  // Lance le portail, puis ouvre la collection une fois terminé
+  playStargate(() => {
+    curId=id;
+    const u=getUniv(id);if(!u)return;
+    if(!ALLDB[id])ALLDB[id]={sections:[{id:'default',name:'Ma collection',color:u.c1}],figurines:[]};
+    DB=ALLDB[id];
+    applyTheme(u);
 
-  document.getElementById('cIcon').textContent=u.icon;
-  document.getElementById('cTitle').textContent=u.name;
+    document.getElementById('cIcon').textContent=u.icon;
+    document.getElementById('cTitle').textContent=u.name;
 
-  // Apply per-collection custom bg
-  const custBg=ALLDB.__collbgs&&ALLDB.__collbgs[id];
-  const ov=document.getElementById('collBgImg');
-  if(custBg){ov.style.backgroundImage=`url(${custBg})`;ov.classList.add('active');}
-  else{ov.style.backgroundImage='';ov.classList.remove('active');}
+    // Apply per-collection custom bg
+    const custBg=ALLDB.__collbgs&&ALLDB.__collbgs[id];
+    const ov=document.getElementById('collBgImg');
+    if(custBg){ov.style.backgroundImage=`url(${custBg})`;ov.classList.add('active');}
+    else{ov.style.backgroundImage='';ov.classList.remove('active');}
 
-  document.getElementById('dashboard').style.display='none';
-  const cv=document.getElementById('collView');
-  cv.style.display='block';
-  cv.classList.remove('entering');void cv.offsetWidth;cv.classList.add('entering');
+    document.getElementById('dashboard').style.display='none';
+    const cv=document.getElementById('collView');
+    cv.style.display='block';
+    cv.classList.remove('entering');void cv.offsetWidth;cv.classList.add('entering');
 
-  curFilter='all';curTab='__all';
-  document.getElementById('searchInp').value='';
-  setFilter('all');renderTabs();renderGrid();
-  window.scrollTo({top:0,behavior:'smooth'});
+    curFilter='all';curTab='__all';
+    document.getElementById('searchInp').value='';
+    setFilter('all');renderTabs();renderGrid();
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
 }
 
 function showDash(){
@@ -2491,6 +2352,370 @@ loadAll();
   <span class="gh-fab-dot" id="gh-fab-dot"></span>
   <span id="gh-fab-lbl">GitHub</span>
 </div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('road-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const SPEED  = 6;
+  const NLINES = 8;
+  let offset   = 0;
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = Math.round(window.innerHeight * 0.36);
+  }
+
+  function draw() {
+    const W = canvas.width, H = canvas.height;
+
+    // Fond — couvre la grille statique de l'image
+    const bg = ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,   'rgba(0,0,10,0)');
+    bg.addColorStop(.20, 'rgba(0,0,10,.80)');
+    bg.addColorStop(.42, 'rgba(0,0,10,.94)');
+    bg.addColorStop(1,   'rgba(0,0,10,.98)');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,W,H);
+
+    const vpx   = W * .5;
+    const roadL = W * .01;
+    const roadR = W * .99;
+    const tot   = NLINES * 2 + 1;
+
+    // ── Lignes verticales convergentes ──
+    for (let i = 0; i <= tot; i++) {
+      const t    = i / tot;
+      const bx   = roadL + t * (roadR - roadL);
+      const dist = Math.abs(t - .5) * 2;
+      const a    = .65 - dist * .20;
+      const g    = ctx.createLinearGradient(vpx,0,bx,H);
+      g.addColorStop(0,   `rgba(0,230,255,0)`);
+      g.addColorStop(.12, `rgba(0,230,255,${a*.25})`);
+      g.addColorStop(.45, `rgba(0,230,255,${a*.65})`);
+      g.addColorStop(1,   `rgba(0,230,255,${a})`);
+      ctx.beginPath();
+      ctx.moveTo(vpx, 0);
+      ctx.lineTo(bx, H);
+      ctx.lineWidth   = .8 + (1-dist) * .6;
+      ctx.strokeStyle = g;
+      ctx.stroke();
+    }
+
+    // ── Lignes horizontales défilantes ──
+    for (let i = 0; i < 23; i++) {
+      const tN  = ((i/20) + (offset/H)) % 1;
+      const tP  = Math.pow(tN, 2.2);
+      const y   = tP * H;
+      if (y < 2) continue;
+      const tY  = y / H;
+      const lx  = vpx + (roadL - vpx) * tY;
+      const rx  = vpx + (roadR - vpx) * tY;
+      const a   = tN * .80;
+      const g   = ctx.createLinearGradient(lx,y,rx,y);
+      g.addColorStop(0,   `rgba(0,230,255,0)`);
+      g.addColorStop(.08, `rgba(0,230,255,${a*.7})`);
+      g.addColorStop(.5,  `rgba(0,230,255,${a})`);
+      g.addColorStop(.92, `rgba(0,230,255,${a*.7})`);
+      g.addColorStop(1,   `rgba(0,230,255,0)`);
+      ctx.lineWidth   = .4 + tN * 2.2;
+      ctx.strokeStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(lx, y);
+      ctx.lineTo(rx, y);
+      ctx.stroke();
+    }
+  }
+
+  function animate() {
+    offset += SPEED;
+    if (offset >= canvas.height * 3) offset -= canvas.height * 3;
+    draw();
+    requestAnimationFrame(animate);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  animate();
+})();
+</script>
+
+<script>
+(function() {
+  'use strict';
+
+  var sg  = document.getElementById('stargate-canvas');
+  if (!sg) return;
+  var ctx = sg.getContext('2d');
+  var TAU = Math.PI * 2;
+
+  /* Durées */
+  var DUR_RING    = 2200;
+  var DUR_KAWOOSH = 4500;
+  var DUR_STABLE  = 2300;
+  var DUR_VIDEO   = 24000;
+
+  var clamp   = function(v,a,b){ return v<a?a:v>b?b:v; };
+  var lerp    = function(a,b,t){ return a+(b-a)*t; };
+  var easeOut = function(t){ return 1-Math.pow(1-t,3); };
+
+  function rGrad(cx,cy,r0,r1){
+    r0=Math.max(0,r0||0); r1=Math.max(r0+0.5,r1||1);
+    if(!isFinite(cx)||!isFinite(cy)) return null;
+    try{ return ctx.createRadialGradient(cx,cy,r0,cx,cy,r1); }catch(e){ return null; }
+  }
+
+  /* ══════════════════════════════
+     VIDÉO — fichier externe simple
+  ══════════════════════════════ */
+  var whVid    = null;
+  var vidShown = false;
+
+  function createVideo(onReady) {
+    if (whVid) { onReady(); return; }
+
+    whVid = document.createElement('video');
+    whVid.muted       = true;
+    whVid.playsInline = true;
+    whVid.preload     = 'auto';
+    whVid.loop        = false;
+    whVid.style.cssText = [
+      'position:fixed','top:0','left:0',
+      'width:100%','height:100%',
+      'object-fit:cover',
+      'z-index:99998',
+      'display:none',
+      'pointer-events:none'
+    ].join(';');
+    document.body.appendChild(whVid);
+
+    var fired = false;
+    function ready() {
+      if (fired) return;
+      fired = true;
+      onReady();
+    }
+
+    whVid.addEventListener('canplay',        ready);
+    whVid.addEventListener('canplaythrough', ready);
+    whVid.addEventListener('error', function(){ ready(); });
+    setTimeout(ready, 3000); /* fallback */
+
+    /* Chemin relatif — wormhole.mp4 est à côté du index.html */
+    whVid.src = 'wormhole.mp4';
+    whVid.load();
+  }
+
+  function showVid() {
+    if (!whVid) return;
+    whVid.style.display = 'block';
+    whVid.currentTime   = 0;
+    var pr = whVid.play();
+    if (pr && pr.catch) pr.catch(function(){});
+  }
+
+  function hideVid() {
+    if (!whVid) return;
+    whVid.pause();
+    whVid.style.display = 'none';
+    whVid.currentTime   = 0;
+  }
+
+  /* ══════════════════════════════
+     ÉTAT
+  ══════════════════════════════ */
+  var raf=null, startTs=null, userCb=null, cbFired=false;
+  var vortexAngle=0;
+  var N_CH=39, BST=null;
+
+  function resize(){
+    sg.width  = window.innerWidth  || 800;
+    sg.height = window.innerHeight || 600;
+  }
+
+  /* ══════════════════════════════
+     POINT D'ENTRÉE
+  ══════════════════════════════ */
+  window.playStargate = function(callback) {
+    userCb=callback; cbFired=false; vidShown=false;
+    vortexAngle=0; startTs=null;
+    hideVid();
+    resize();
+    sg.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;display:block;pointer-events:none;';
+    createVideo(function() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(tick);
+    });
+  };
+
+  /* ══════════════════════════════
+     BOUCLE
+  ══════════════════════════════ */
+  function tick(ts) {
+    if (!startTs) startTs = ts;
+    var el=ts-startTs;
+    var W=sg.width, H=sg.height, cx=W/2, cy=H/2;
+    var R=Math.min(W,H)*0.38;
+    ctx.clearRect(0,0,W,H);
+
+    if (el < DUR_RING) {
+      var p=el/DUR_RING;
+      ctx.fillStyle='rgba(0,0,12,'+clamp(easeOut(p)*0.92,0,0.92)+')';
+      ctx.fillRect(0,0,W,H);
+      bgStars(W,H,easeOut(p)*0.5);
+      drawRing(cx,cy,R,p,0);
+
+    } else if (el < DUR_RING+DUR_KAWOOSH) {
+      var p=(el-DUR_RING)/DUR_KAWOOSH;
+      ctx.fillStyle='rgba(0,0,12,0.93)'; ctx.fillRect(0,0,W,H);
+      bgStars(W,H,clamp(1-p,0,1)*0.4);
+      drawRing(cx,cy,R,1,0);
+      drawKawoosh(cx,cy,R,p);
+
+    } else if (el < DUR_RING+DUR_KAWOOSH+DUR_STABLE) {
+      var p=(el-DUR_RING-DUR_KAWOOSH)/DUR_STABLE;
+      ctx.fillStyle='rgba(0,0,12,0.93)'; ctx.fillRect(0,0,W,H);
+      drawRing(cx,cy,R,1,p);
+      drawVortex(cx,cy,R);
+      if (!cbFired && p>=0.5){ cbFired=true; if(userCb) userCb(); }
+
+    } else {
+      var p=clamp((el-DUR_RING-DUR_KAWOOSH-DUR_STABLE)/DUR_VIDEO,0,1);
+      if (!vidShown){ vidShown=true; showVid(); }
+      if (p>0.92){
+        var fp=(p-0.92)/0.08;
+        ctx.fillStyle='rgba(200,240,255,'+(fp*fp)+')';
+        ctx.fillRect(0,0,W,H);
+      }
+      if (p>=1){ finish(); return; }
+    }
+
+    vortexAngle+=0.022;
+    raf=requestAnimationFrame(tick);
+  }
+
+  /* ══════════════════════════════
+     ANNEAU 39 CHEVRONS
+  ══════════════════════════════ */
+  function drawRing(cx,cy,R,litRatio,glow){
+    var rIn=R*0.82, rOut=R;
+    ctx.beginPath();ctx.arc(cx,cy,rOut,0,TAU,false);
+    ctx.arc(cx,cy,rIn,0,TAU,true);
+    ctx.fillStyle='#0d0d28'; ctx.fill();
+    ctx.beginPath();ctx.arc(cx,cy,rOut,0,TAU);
+    ctx.strokeStyle='rgba(0,180,220,0.5)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,rIn,0,TAU);
+    ctx.strokeStyle='rgba(0,140,200,0.3)';ctx.lineWidth=1;ctx.stroke();
+    var nLit=Math.floor(litRatio*N_CH);
+    for(var i=0;i<N_CH;i++)
+      drawChevron(cx,cy,rIn,rOut,(i/N_CH)*TAU-TAU/4,i<nLit,glow);
+  }
+
+  function drawChevron(cx,cy,rIn,rOut,angle,lit,glow){
+    var w=TAU/N_CH*0.52, a0=angle-w/2, a1=angle+w/2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx,cy,rOut,a0,a1); ctx.arc(cx,cy,rIn,a1,a0,true); ctx.closePath();
+    if(lit){ctx.fillStyle='#00ddff';ctx.shadowColor='#00ffee';ctx.shadowBlur=12+glow*20;}
+    else{ctx.fillStyle='#181830';}
+    ctx.fill();
+    if(lit){
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(angle)*(rOut+7),cy+Math.sin(angle)*(rOut+7));
+      ctx.lineTo(cx+Math.cos(a0)*(rOut-2),cy+Math.sin(a0)*(rOut-2));
+      ctx.lineTo(cx+Math.cos(a1)*(rOut-2),cy+Math.sin(a1)*(rOut-2));
+      ctx.closePath();
+      ctx.fillStyle='#00ffee';ctx.shadowColor='#00ffee';ctx.shadowBlur=18+glow*25;ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ══════════════════════════════
+     KAWOOSH
+  ══════════════════════════════ */
+  function drawKawoosh(cx,cy,R,p){
+    var ep=easeOut(p), rIn=R*0.82, wf=ep*rIn*0.92;
+    ctx.save();
+    ctx.beginPath();ctx.arc(cx,cy,rIn*0.98,0,TAU);ctx.clip();
+    ctx.fillStyle='#000510';ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+    for(var w=0;w<8;w++){
+      var wr=wf*(1-w*0.03); if(wr<=0) continue;
+      var al=clamp((1-w/8)*1.2,0,1)*(1-p*0.3);
+      ctx.beginPath();ctx.arc(cx,cy,wr,0,TAU);
+      ctx.strokeStyle='rgba('+Math.round(lerp(100,220,w/8))+','+Math.round(lerp(180,255,w/8))+',255,'+al+')';
+      ctx.lineWidth=Math.max(1,(8-w)*4*(1-p*0.5));
+      ctx.shadowColor='rgba(0,200,255,0.7)';ctx.shadowBlur=16*(1-w/8);ctx.stroke();
+    }
+    if(p>0.3) drawSpiral(cx,cy,rIn*0.95,clamp((p-0.3)/0.7,0,1));
+    var gc=rGrad(cx,cy,0,wf);
+    if(gc){
+      gc.addColorStop(0,'rgba(200,240,255,'+(0.55-p*0.25)+')');
+      gc.addColorStop(0.5,'rgba(0,160,255,'+(0.3-p*0.1)+')');
+      gc.addColorStop(1,'rgba(0,0,50,0)');
+      ctx.fillStyle=gc;ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+    }
+    ctx.restore();
+  }
+
+  /* ══════════════════════════════
+     VORTEX STABLE
+  ══════════════════════════════ */
+  function drawVortex(cx,cy,R){
+    var rIn=R*0.82;
+    ctx.save();
+    ctx.beginPath();ctx.arc(cx,cy,rIn*0.98,0,TAU);ctx.clip();
+    ctx.fillStyle='#000510';ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+    drawSpiral(cx,cy,rIn*0.95,1);
+    var gc=rGrad(cx,cy,0,rIn*0.75);
+    if(gc){
+      gc.addColorStop(0,'rgba(180,230,255,0.5)');
+      gc.addColorStop(0.4,'rgba(0,150,255,0.25)');
+      gc.addColorStop(1,'rgba(0,0,40,0)');
+      ctx.fillStyle=gc;ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+    }
+    ctx.restore();
+  }
+
+  function drawSpiral(cx,cy,maxR,str){
+    for(var arm=0;arm<3;arm++){
+      ctx.beginPath();
+      for(var i=0;i<180;i++){
+        var f=i/180,a=f*TAU*2.5+vortexAngle+(arm/3)*TAU,r=f*maxR*str;
+        if(i===0) ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+        else       ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+      }
+      ctx.strokeStyle=arm===0?'rgba(0,200,255,0.55)':arm===1?'rgba(100,220,255,0.40)':'rgba(200,240,255,0.28)';
+      ctx.lineWidth=arm===0?3:arm===1?2:1.2;
+      ctx.shadowColor='rgba(0,180,255,0.6)';ctx.shadowBlur=14;ctx.stroke();
+    }
+    ctx.shadowBlur=0;
+  }
+
+  function bgStars(W,H,alpha){
+    if(alpha<0.02) return;
+    if(!BST){BST=[];var s=54321;
+      function rng(){s=(s*1664525+1013904223)>>>0;return s/4294967295;}
+      for(var i=0;i<180;i++) BST.push({x:rng(),y:rng(),r:0.3+rng()*1.3,a:0.2+rng()*0.8});}
+    for(var i=0;i<BST.length;i++){
+      ctx.beginPath();ctx.arc(BST[i].x*W,BST[i].y*H,BST[i].r,0,TAU);
+      ctx.fillStyle='rgba(200,225,255,'+(BST[i].a*alpha)+')';ctx.fill();
+    }
+  }
+
+  function finish(){
+    sg.style.display='none';
+    ctx.clearRect(0,0,sg.width,sg.height);
+    hideVid();
+    if(!cbFired && userCb){cbFired=true;userCb();}
+    raf=null;
+  }
+
+  window.addEventListener('resize',resize);
+  resize();
+})();
+</script>
 
 </body>
 </html>
