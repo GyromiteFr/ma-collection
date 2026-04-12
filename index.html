@@ -47,6 +47,25 @@ body{
   cursor:crosshair;
 }
 
+.imgbb-upload-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  margin-top:8px; padding:8px 14px;
+  background:linear-gradient(135deg,rgba(0,180,255,.2),rgba(0,100,200,.2));
+  border:1px solid rgba(0,180,255,.5); border-radius:8px;
+  color:#00e6ff; font-size:12px; font-family:Orbitron,sans-serif;
+  cursor:pointer; letter-spacing:.5px; width:100%;
+  justify-content:center; transition:.2s;
+}
+.imgbb-upload-btn:hover { background:rgba(0,180,255,.3); }
+.imgbb-status {
+  font-size:11px; color:#00e6ff; margin-top:4px;
+  min-height:16px; text-align:center;
+}
+.imgbb-card-btn {
+  background:linear-gradient(135deg,rgba(0,180,255,.25),rgba(0,80,180,.2));
+  border-color:rgba(0,200,255,.6);
+}
+
 /* ═══════════════════════════════════════════════════
    FOND D'ÉCRAN ANIMÉ — IMAGE COCKPIT
 ═══════════════════════════════════════════════════ */
@@ -1373,6 +1392,9 @@ to   { background-position: 0 100vh; }
       <div class="modal-photos-label">Photos (jusqu'à 6)</div>
       <div class="modal-photos-grid" id="modPhotosGrid"></div>
       <input type="file" id="modPhotoInp" accept="image/*" multiple style="display:none" onchange="handleModPhotos(event)">
+      <input type="file" id="imgbbInp" accept="image/*" capture="environment" style="display:none" onchange="handleImgbbUpload(event,'modal')">
+      <button class="imgbb-upload-btn" onclick="document.getElementById('imgbbInp').click()">📱 iPhone → Upload auto</button>
+      <div id="imgbb-modal-status" class="imgbb-status"></div>
     </div>
 
     <div class="form-grid">
@@ -1990,8 +2012,10 @@ function cardHTML(f,rgb){
       ${photos.length===0?'':''}
       <div class="img-hover">
         <span>📷</span>
-        <div class="add-photo-btn" onclick="event.stopPropagation();document.getElementById('fi-${f.id}').click()">Ajouter photo</div>
+        <div class="add-photo-btn" onclick="event.stopPropagation();document.getElementById('fi-${f.id}').click()">📁 Local</div>
+        <div class="add-photo-btn imgbb-card-btn" onclick="event.stopPropagation();triggerImgbbCard('${f.id}')">📱 iPhone</div>
       </div>
+      <input type="file" id="imgbb-card-${f.id}" accept="image/*" capture="environment" style="display:none" onchange="handleImgbbUpload(event,'card','${f.id}')">
       ${dots}${arrows}
     </div>
     <input type="file" class="file-inp" id="fi-${f.id}" accept="image/*" onchange="addPhotoToCard(event,'${f.id}')">
@@ -2230,6 +2254,93 @@ function loadBgFile(evt){
 // ══════════════════════════════════════════
 //  PANNEAU CONFIG GITHUB
 // ══════════════════════════════════════════
+/* ══════════════════════════════════════════
+   IMGBB — Upload photo depuis iPhone
+   La clé API est stockée en localStorage
+   L'image est uploadée sur imgbb.com
+   L'URL est ajoutée aux photos de la figurine
+══════════════════════════════════════════ */
+
+function saveImgbbKey(){
+  const k=document.getElementById('imgbb-key-inp').value.trim();
+  const st=document.getElementById('imgbb-key-status');
+  if(!k){ st.textContent='⚠ Clé vide'; st.style.color='#ff8844'; return; }
+  localStorage.setItem('imgbb_key',k);
+  st.textContent='✔ Clé sauvegardée !'; st.style.color='#00ff88';
+  setTimeout(()=>{ st.textContent=''; },3000);
+}
+
+function getImgbbKey(){
+  return localStorage.getItem('imgbb_key')||'';
+}
+
+/* Charge la clé dans le champ quand on ouvre le panneau */
+function loadImgbbKeyInPanel(){
+  const k=getImgbbKey();
+  const inp=document.getElementById('imgbb-key-inp');
+  if(inp && k) inp.value=k;
+}
+
+function triggerImgbbCard(figId){
+  document.getElementById('imgbb-card-'+figId).click();
+}
+
+async function uploadToImgbb(file, statusEl){
+  const key=getImgbbKey();
+  if(!key){
+    if(statusEl) statusEl.textContent='⚠ Clé ImgBB manquante — configurez-la dans ● GITHUB';
+    return null;
+  }
+  if(statusEl){ statusEl.textContent='⏳ Upload en cours...'; statusEl.style.color='#00e6ff'; }
+  try {
+    const fd=new FormData();
+    fd.append('image', file);
+    fd.append('key', key);
+    const res=await fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd});
+    const json=await res.json();
+    if(json.success){
+      const url=json.data.url;
+      if(statusEl){ statusEl.textContent='✔ Upload réussi !'; statusEl.style.color='#00ff88'; }
+      setTimeout(()=>{ if(statusEl) statusEl.textContent=''; },3000);
+      return url;
+    } else {
+      if(statusEl){ statusEl.textContent='❌ Erreur: '+(json.error?.message||'inconnue'); statusEl.style.color='#ff4444'; }
+      return null;
+    }
+  } catch(e){
+    if(statusEl){ statusEl.textContent='❌ Erreur réseau'; statusEl.style.color='#ff4444'; }
+    return null;
+  }
+}
+
+async function handleImgbbUpload(evt, mode, figId){
+  const file=evt.target.files[0];
+  evt.target.value='';
+  if(!file) return;
+
+  if(mode==='modal'){
+    /* Upload depuis le modal d'ajout/édition */
+    const st=document.getElementById('imgbb-modal-status');
+    const url=await uploadToImgbb(file, st);
+    if(url){
+      if(modPhotos.length<6){ modPhotos.push(url); renderModPhotos(); }
+      else { if(st) st.textContent='⚠ Maximum 6 photos atteint'; }
+    }
+  } else if(mode==='card' && figId){
+    /* Upload depuis une carte de figurine */
+    /* Trouver un élément de statut temporaire */
+    const cardEl=document.querySelector('.figurine-card');
+    const url=await uploadToImgbb(file, null);
+    if(url){
+      const fig=DB.figurines.find(f=>f.id===figId);
+      if(fig){
+        if(!fig.photos) fig.photos=[];
+        if(fig.photos.length<6){ fig.photos.push(url); save(); renderGrid(); }
+      }
+    }
+  }
+}
+
 function openGhPanel(){
   // Pré-remplir si token déjà présent
   const tok=ghToken();
@@ -2339,6 +2450,13 @@ loadAll();
       Il n'apparaît jamais dans le code source ni sur GitHub.<br>
       Dépôt cible : <strong>GyromiteFr/ma-collection</strong> → oasis-collection.json
     </div>
+    <div class="gh-field" style="margin-top:18px;border-top:1px solid rgba(0,200,255,.15);padding-top:16px;">
+      <div class="gh-lbl">🖼 Clé API ImgBB (upload photos depuis iPhone)</div>
+      <div class="gh-sub" style="margin:4px 0 8px;">Gratuit sur <a href="https://api.imgbb.com/" target="_blank">api.imgbb.com</a> → Get API key</div>
+      <input class="gh-inp" id="imgbb-key-inp" type="password" placeholder="Votre clé ImgBB..." autocomplete="off">
+      <button class="gh-btn gh-btn-save" style="margin-top:8px;width:100%" onclick="saveImgbbKey()">✔ Sauvegarder clé ImgBB</button>
+      <div id="imgbb-key-status" style="font-size:11px;color:#00e6ff;margin-top:6px;min-height:14px;"></div>
+    </div>
     <div class="gh-actions">
       <button class="gh-btn gh-btn-skip" onclick="closeGhPanel()">Plus tard</button>
       <button class="gh-btn gh-btn-test" onclick="testGhToken()">⟳ Tester</button>
@@ -2363,21 +2481,33 @@ loadAll();
   const NLINES = 8;
   let offset   = 0;
 
+  /* Gradient linéaire sécurisé — évite createLinearGradient avec NaN/Infinity */
+  function safeGrad(x0,y0,x1,y1) {
+    if (!isFinite(x0)||!isFinite(y0)||!isFinite(x1)||!isFinite(y1)) return null;
+    if (x0===x1 && y0===y1) x1 += 0.001;
+    try { return ctx.createLinearGradient(x0,y0,x1,y1); } catch(e) { return null; }
+  }
+
   function resize() {
-    canvas.width  = window.innerWidth;
-    canvas.height = Math.round(window.innerHeight * 0.36);
+    canvas.width  = window.innerWidth  || 800;
+    canvas.height = Math.round((window.innerHeight || 600) * 0.36);
   }
 
   function draw() {
     const W = canvas.width, H = canvas.height;
+    if (!W || !H) return; /* sécurité si canvas pas encore dimensionné */
 
-    // Fond — couvre la grille statique de l'image
-    const bg = ctx.createLinearGradient(0,0,0,H);
-    bg.addColorStop(0,   'rgba(0,0,10,0)');
-    bg.addColorStop(.20, 'rgba(0,0,10,.80)');
-    bg.addColorStop(.42, 'rgba(0,0,10,.94)');
-    bg.addColorStop(1,   'rgba(0,0,10,.98)');
-    ctx.fillStyle = bg;
+    /* Fond */
+    const bg = safeGrad(0,0,0,H);
+    if (bg) {
+      bg.addColorStop(0,   'rgba(0,0,10,0)');
+      bg.addColorStop(.20, 'rgba(0,0,10,.80)');
+      bg.addColorStop(.42, 'rgba(0,0,10,.94)');
+      bg.addColorStop(1,   'rgba(0,0,10,.98)');
+      ctx.fillStyle = bg;
+    } else {
+      ctx.fillStyle = 'rgba(0,0,10,.95)';
+    }
     ctx.fillRect(0,0,W,H);
 
     const vpx   = W * .5;
@@ -2385,13 +2515,14 @@ loadAll();
     const roadR = W * .99;
     const tot   = NLINES * 2 + 1;
 
-    // ── Lignes verticales convergentes ──
+    /* Lignes verticales convergentes */
     for (let i = 0; i <= tot; i++) {
       const t    = i / tot;
       const bx   = roadL + t * (roadR - roadL);
       const dist = Math.abs(t - .5) * 2;
       const a    = .65 - dist * .20;
-      const g    = ctx.createLinearGradient(vpx,0,bx,H);
+      const g    = safeGrad(vpx,0,bx,H);
+      if (!g) continue;
       g.addColorStop(0,   `rgba(0,230,255,0)`);
       g.addColorStop(.12, `rgba(0,230,255,${a*.25})`);
       g.addColorStop(.45, `rgba(0,230,255,${a*.65})`);
@@ -2404,17 +2535,20 @@ loadAll();
       ctx.stroke();
     }
 
-    // ── Lignes horizontales défilantes ──
+    /* Lignes horizontales défilantes */
+    const offNorm = H > 0 ? (offset / H) : 0;
     for (let i = 0; i < 23; i++) {
-      const tN  = ((i/20) + (offset/H)) % 1;
+      const tN  = ((i/20) + offNorm) % 1;
       const tP  = Math.pow(tN, 2.2);
       const y   = tP * H;
       if (y < 2) continue;
       const tY  = y / H;
       const lx  = vpx + (roadL - vpx) * tY;
       const rx  = vpx + (roadR - vpx) * tY;
+      if (Math.abs(rx - lx) < 0.01) continue; /* évite gradient de longueur 0 */
       const a   = tN * .80;
-      const g   = ctx.createLinearGradient(lx,y,rx,y);
+      const g   = safeGrad(lx,y,rx,y);
+      if (!g) continue;
       g.addColorStop(0,   `rgba(0,230,255,0)`);
       g.addColorStop(.08, `rgba(0,230,255,${a*.7})`);
       g.addColorStop(.5,  `rgba(0,230,255,${a})`);
@@ -2430,8 +2564,10 @@ loadAll();
   }
 
   function animate() {
-    offset += SPEED;
-    if (offset >= canvas.height * 3) offset -= canvas.height * 3;
+    if (canvas.height > 0) {
+      offset += SPEED;
+      if (offset >= canvas.height * 3) offset -= canvas.height * 3;
+    }
     draw();
     requestAnimationFrame(animate);
   }
