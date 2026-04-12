@@ -1951,13 +1951,26 @@ function deleteUniv(id){
   save();renderDash();
 }
 
-function changeUnivLogo(evt,id){
-  const file=evt.target.files[0];if(!file)return;
+async function changeUnivLogo(evt,id){
+  const file=evt.target.files[0]; if(!file) return;
+  const key=getImgbbKey();
+  if(key){
+    const fd=new FormData(); fd.append('image',file); fd.append('key',key);
+    try{
+      const res=await fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd});
+      const json=await res.json();
+      if(json.success){
+        if(!ALLDB.__logos) ALLDB.__logos={};
+        ALLDB.__logos[id]=json.data.url;
+        save(); renderDash(); return;
+      }
+    }catch(e){}
+  }
   const r=new FileReader();
   r.onload=e=>{
-    if(!ALLDB.__logos)ALLDB.__logos={};
+    if(!ALLDB.__logos) ALLDB.__logos={};
     ALLDB.__logos[id]=e.target.result;
-    save();renderDash();
+    save(); renderDash();
   };
   r.readAsDataURL(file);
 }
@@ -2006,14 +2019,28 @@ function showDash(){
 }
 
 // Per-collection bg
-function setCollBg(evt){
-  const file=evt.target.files[0];if(!file)return;
+async function setCollBg(evt){
+  const file=evt.target.files[0]; if(!file) return;
+  const key=getImgbbKey();
+  const ov=document.getElementById('collBgImg');
+  if(key){
+    const fd=new FormData(); fd.append('image',file); fd.append('key',key);
+    try{
+      const res=await fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd});
+      const json=await res.json();
+      if(json.success){
+        if(!ALLDB.__collbgs) ALLDB.__collbgs={};
+        ALLDB.__collbgs[curId]=json.data.url;
+        ov.style.backgroundImage=`url(${json.data.url})`; ov.classList.add('active');
+        save(); return;
+      }
+    }catch(e){}
+  }
   const r=new FileReader();
   r.onload=e=>{
-    if(!ALLDB.__collbgs)ALLDB.__collbgs={};
+    if(!ALLDB.__collbgs) ALLDB.__collbgs={};
     ALLDB.__collbgs[curId]=e.target.result;
-    const ov=document.getElementById('collBgImg');
-    ov.style.backgroundImage=`url(${e.target.result})`;ov.classList.add('active');
+    ov.style.backgroundImage=`url(${e.target.result})`; ov.classList.add('active');
     save();
   };
   r.readAsDataURL(file);
@@ -2168,16 +2195,29 @@ function refreshCardPhotos(id){
 }
 
 // Add photo to card
-function addPhotoToCard(evt,id){
-  const file=evt.target.files[0];if(!file)return;
+async function addPhotoToCard(evt,id){
+  const file=evt.target.files[0]; if(!file) return;
+  const f=(DB.figurines||[]).find(x=>x.id===id); if(!f) return;
+  if(!f.photos) f.photos=[];
+  if(f.photos.length>=6){ alert('Maximum 6 photos par item.'); return; }
+  const key=getImgbbKey();
+  if(key){
+    const fd=new FormData(); fd.append('image',file); fd.append('key',key);
+    try{
+      const res=await fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd});
+      const json=await res.json();
+      if(json.success){
+        f.photos.push(json.data.url);
+        curPhotoIdx[id]=f.photos.length-1;
+        save(); renderGrid(); return;
+      }
+    }catch(e){}
+  }
   const r=new FileReader();
   r.onload=e=>{
-    const f=(DB.figurines||[]).find(x=>x.id===id);if(!f)return;
-    if(!f.photos)f.photos=[];
-    if(f.photos.length>=6){alert('Maximum 6 photos par item.');return;}
     f.photos.push(e.target.result);
     curPhotoIdx[id]=f.photos.length-1;
-    save();renderGrid();
+    save(); renderGrid();
   };
   r.readAsDataURL(file);
 }
@@ -2231,15 +2271,27 @@ function renderModPhotos(){
   }
 }
 
-function handleModPhotos(evt){
+async function handleModPhotos(evt){
   const files=Array.from(evt.target.files);
-  files.forEach(file=>{
-    if(modPhotos.length>=6)return;
-    const r=new FileReader();
-    r.onload=e=>{modPhotos.push(e.target.result);renderModPhotos();};
-    r.readAsDataURL(file);
-  });
   evt.target.value='';
+  const key=getImgbbKey();
+  for(const file of files){
+    if(modPhotos.length>=6) break;
+    if(key){
+      const fd=new FormData(); fd.append('image',file); fd.append('key',key);
+      try{
+        const res=await fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd});
+        const json=await res.json();
+        if(json.success){ modPhotos.push(json.data.url); renderModPhotos(); continue; }
+      }catch(e){}
+    }
+    /* Fallback base64 */
+    await new Promise(resolve=>{
+      const r=new FileReader();
+      r.onload=e=>{ modPhotos.push(e.target.result); renderModPhotos(); resolve(); };
+      r.readAsDataURL(file);
+    });
+  }
 }
 
 function delModPhoto(i){modPhotos.splice(i,1);renderModPhotos();}
