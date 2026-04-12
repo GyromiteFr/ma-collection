@@ -47,6 +47,19 @@ body{
   cursor:crosshair;
 }
 
+.btn-save-now {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 18px;
+  background:linear-gradient(135deg,rgba(0,255,120,.15),rgba(0,180,80,.1));
+  border:1.5px solid rgba(0,255,120,.55); border-radius:8px;
+  color:#00ff88; font-size:11px; font-family:Orbitron,sans-serif;
+  font-weight:700; letter-spacing:1px; cursor:pointer;
+  transition:.2s; text-transform:uppercase;
+}
+.btn-save-now:hover { background:rgba(0,255,120,.25); transform:scale(1.03); }
+.btn-save-now.saving { opacity:.6; cursor:wait; }
+.btn-save-now.saved  { border-color:rgba(0,255,180,.8); color:#00ffcc; }
+
 .imgbb-upload-btn {
   display:inline-flex; align-items:center; gap:6px;
   margin-top:8px; padding:8px 14px;
@@ -1324,8 +1337,12 @@ to   { background-position: 0 100vh; }
 
   <div class="dash-section-hdr">
     <h2>Choisissez votre univers</h2>
-    <button class="btn-add-universe" onclick="openUnivMod()">＋ Ajouter un univers</button>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button class="btn-add-universe" onclick="openUnivMod()">＋ Ajouter un univers</button>
+      <button class="btn-save-now" id="btn-save-now" onclick="forceSaveNow()">💾 Sauvegarder</button>
+    </div>
   </div>
+  <div id="save-now-status" style="text-align:right;font-size:11px;color:#00e6ff;min-height:16px;padding:0 20px 6px;font-family:Orbitron,sans-serif;letter-spacing:.5px;"></div>
 
   <div class="portal-grid" id="portalGrid"></div>
 
@@ -1666,6 +1683,78 @@ async function saveAll(){
 }
 
 function save(){clearTimeout(saveTimer);saveTimer=setTimeout(saveAll,1200);}
+
+/* ── Sauvegarde forcée GitHub (bouton 💾) ── */
+async function forceSaveNow(){
+  const btn = document.getElementById('btn-save-now');
+  const st  = document.getElementById('save-now-status');
+  if (!btn) return;
+
+  /* Vérifier que GitHub est configuré */
+  const tok  = localStorage.getItem('gh_token')||'';
+  const owner= localStorage.getItem('gh_owner')||GH_OWNER;
+  const repo = localStorage.getItem('gh_repo') ||GH_REPO;
+  const file = localStorage.getItem('gh_file') ||GH_FILE;
+
+  if (!tok) {
+    if(st){ st.textContent="⚠ Configurez votre token GitHub d'abord"; st.style.color='#ff8844'; }
+    setTimeout(()=>{ if(st) st.textContent=''; },4000);
+    openGhPanel();
+    return;
+  }
+
+  btn.classList.add('saving');
+  btn.textContent='⏳ Sauvegarde...';
+  if(st){ st.textContent='⏳ Envoi sur GitHub...'; st.style.color='#00e6ff'; }
+
+  try {
+    /* 1. Récupérer le SHA actuel du fichier */
+    const headers = {
+      'Authorization':'token '+tok,
+      'Accept':'application/vnd.github.v3+json'
+    };
+    let sha = '';
+    try {
+      const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${file}`,{headers});
+      if(getRes.ok){ const getJson=await getRes.json(); sha=getJson.sha||''; }
+    } catch(e){}
+
+    /* 2. Encoder les données en base64 */
+    const json    = JSON.stringify(ALLDB, null, 2);
+    const b64     = btoa(unescape(encodeURIComponent(json)));
+    const now     = new Date().toLocaleString('fr-FR');
+
+    /* 3. PUT sur GitHub */
+    const body = {
+      message:`💾 Sauvegarde manuelle — ${now}`,
+      content: b64,
+      ...(sha ? {sha} : {})
+    };
+    const putRes  = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${file}`,{
+      method:'PUT', headers:{...headers,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+
+    if(putRes.ok || putRes.status===200 || putRes.status===201){
+      btn.classList.remove('saving'); btn.classList.add('saved');
+      btn.textContent='✔ Sauvegardé !';
+      if(st){ st.textContent=`✔ Sauvegardé sur GitHub le ${now}`; st.style.color='#00ff88'; }
+      setTimeout(()=>{
+        btn.classList.remove('saved');
+        btn.textContent='💾 Sauvegarder';
+        if(st) st.textContent='';
+      },4000);
+    } else {
+      const err = await putRes.json().catch(()=>({}));
+      throw new Error(err.message||putRes.status);
+    }
+  } catch(e){
+    btn.classList.remove('saving');
+    btn.textContent='💾 Sauvegarder';
+    if(st){ st.textContent='❌ Erreur: '+e.message; st.style.color='#ff4444'; }
+    setTimeout(()=>{ if(st) st.textContent=''; },5000);
+  }
+}
 function uid(){return 'id'+Date.now()+Math.random().toString(36).slice(2,7);}
 
 function buildDefault(){
@@ -2588,255 +2677,520 @@ loadAll();
   var TAU = Math.PI * 2;
 
   /* Durées */
-  var DUR_RING    = 2200;
-  var DUR_KAWOOSH = 4500;
-  var DUR_STABLE  = 2300;
+  var DUR_RING    = 3500;
+  var DUR_KAWOOSH = 5000;
+  var DUR_STABLE  = 2000;
   var DUR_VIDEO   = 24000;
 
-  var clamp   = function(v,a,b){ return v<a?a:v>b?b:v; };
-  var lerp    = function(a,b,t){ return a+(b-a)*t; };
-  var easeOut = function(t){ return 1-Math.pow(1-t,3); };
+  var clamp    = function(v,a,b){ return v<a?a:v>b?b:v; };
+  var lerp     = function(a,b,t){ return a+(b-a)*t; };
+  var easeOut  = function(t){ return 1-Math.pow(1-t,3); };
+  var easeOut5 = function(t){ return 1-Math.pow(1-t,5); };
+  var easeIn   = function(t){ return t*t*t; };
 
   function rGrad(cx,cy,r0,r1){
     r0=Math.max(0,r0||0); r1=Math.max(r0+0.5,r1||1);
     if(!isFinite(cx)||!isFinite(cy)) return null;
     try{ return ctx.createRadialGradient(cx,cy,r0,cx,cy,r1); }catch(e){ return null; }
   }
+  function lGrad(x0,y0,x1,y1){
+    if(!isFinite(x0)||!isFinite(y0)||!isFinite(x1)||!isFinite(y1)) return null;
+    if(x0===x1&&y0===y1) x1+=0.01;
+    try{ return ctx.createLinearGradient(x0,y0,x1,y1); }catch(e){ return null; }
+  }
 
-  /* ══════════════════════════════
-     VIDÉO — fichier externe simple
-  ══════════════════════════════ */
-  var whVid    = null;
-  var vidShown = false;
-
-  function createVideo(onReady) {
-    if (whVid) { onReady(); return; }
-
-    whVid = document.createElement('video');
-    whVid.muted       = true;
-    whVid.playsInline = true;
-    whVid.preload     = 'auto';
-    whVid.loop        = false;
-    whVid.style.cssText = [
-      'position:fixed','top:0','left:0',
-      'width:100%','height:100%',
-      'object-fit:cover',
-      'z-index:99998',
-      'display:none',
-      'pointer-events:none'
-    ].join(';');
+  /* Vidéo */
+  var whVid=null, vidShown=false;
+  function createVideo(onReady){
+    if(whVid){ onReady(); return; }
+    whVid=document.createElement('video');
+    whVid.muted=true; whVid.playsInline=true; whVid.preload='auto'; whVid.loop=false;
+    whVid.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:99998;display:none;pointer-events:none;';
     document.body.appendChild(whVid);
-
-    var fired = false;
-    function ready() {
-      if (fired) return;
-      fired = true;
-      onReady();
-    }
-
-    whVid.addEventListener('canplay',        ready);
-    whVid.addEventListener('canplaythrough', ready);
-    whVid.addEventListener('error', function(){ ready(); });
-    setTimeout(ready, 3000); /* fallback */
-
-    /* Chemin relatif — wormhole.mp4 est à côté du index.html */
-    whVid.src = 'wormhole.mp4';
-    whVid.load();
+    var fired=false;
+    function ready(){ if(fired)return; fired=true; onReady(); }
+    whVid.addEventListener('canplay',ready);
+    whVid.addEventListener('error',ready);
+    setTimeout(ready,3000);
+    whVid.src='wormhole.mp4'; whVid.load();
   }
+  function showVid(){ if(!whVid)return; whVid.style.display='block'; whVid.currentTime=0; var p=whVid.play(); if(p&&p.catch)p.catch(function(){}); }
+  function hideVid(){ if(!whVid)return; whVid.pause(); whVid.style.display='none'; whVid.currentTime=0; }
 
-  function showVid() {
-    if (!whVid) return;
-    whVid.style.display = 'block';
-    whVid.currentTime   = 0;
-    var pr = whVid.play();
-    if (pr && pr.catch) pr.catch(function(){});
-  }
-
-  function hideVid() {
-    if (!whVid) return;
-    whVid.pause();
-    whVid.style.display = 'none';
-    whVid.currentTime   = 0;
-  }
-
-  /* ══════════════════════════════
-     ÉTAT
-  ══════════════════════════════ */
+  /* État */
   var raf=null, startTs=null, userCb=null, cbFired=false;
-  var vortexAngle=0;
-  var N_CH=39, BST=null;
+  var vortexAngle=0, BST=null;
 
   function resize(){
     sg.width  = window.innerWidth  || 800;
     sg.height = window.innerHeight || 600;
   }
 
-  /* ══════════════════════════════
-     POINT D'ENTRÉE
-  ══════════════════════════════ */
-  window.playStargate = function(callback) {
+  window.playStargate = function(callback){
     userCb=callback; cbFired=false; vidShown=false;
     vortexAngle=0; startTs=null;
-    hideVid();
-    resize();
-    sg.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;display:block;pointer-events:none;';
-    createVideo(function() {
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(tick);
+    hideVid(); resize();
+    sg.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;display:block;pointer-events:none;';
+    createVideo(function(){
+      if(raf) cancelAnimationFrame(raf);
+      raf=requestAnimationFrame(tick);
     });
   };
 
-  /* ══════════════════════════════
-     BOUCLE
-  ══════════════════════════════ */
-  function tick(ts) {
-    if (!startTs) startTs = ts;
+  function tick(ts){
+    if(!startTs) startTs=ts;
     var el=ts-startTs;
     var W=sg.width, H=sg.height, cx=W/2, cy=H/2;
-    var R=Math.min(W,H)*0.38;
+    var R=Math.min(W,H)*0.40;
     ctx.clearRect(0,0,W,H);
 
-    if (el < DUR_RING) {
-      var p=el/DUR_RING;
-      ctx.fillStyle='rgba(0,0,12,'+clamp(easeOut(p)*0.92,0,0.92)+')';
-      ctx.fillRect(0,0,W,H);
-      bgStars(W,H,easeOut(p)*0.5);
-      drawRing(cx,cy,R,p,0);
-
-    } else if (el < DUR_RING+DUR_KAWOOSH) {
-      var p=(el-DUR_RING)/DUR_KAWOOSH;
-      ctx.fillStyle='rgba(0,0,12,0.93)'; ctx.fillRect(0,0,W,H);
-      bgStars(W,H,clamp(1-p,0,1)*0.4);
-      drawRing(cx,cy,R,1,0);
-      drawKawoosh(cx,cy,R,p);
-
-    } else if (el < DUR_RING+DUR_KAWOOSH+DUR_STABLE) {
-      var p=(el-DUR_RING-DUR_KAWOOSH)/DUR_STABLE;
-      ctx.fillStyle='rgba(0,0,12,0.93)'; ctx.fillRect(0,0,W,H);
-      drawRing(cx,cy,R,1,p);
-      drawVortex(cx,cy,R);
-      if (!cbFired && p>=0.5){ cbFired=true; if(userCb) userCb(); }
-
+    if(el < DUR_RING){
+      phase1(cx,cy,R,el/DUR_RING,W,H);
+    } else if(el < DUR_RING+DUR_KAWOOSH){
+      phase2(cx,cy,R,(el-DUR_RING)/DUR_KAWOOSH,W,H);
+    } else if(el < DUR_RING+DUR_KAWOOSH+DUR_STABLE){
+      var p3=(el-DUR_RING-DUR_KAWOOSH)/DUR_STABLE;
+      phase3(cx,cy,R,p3,W,H);
+      if(!cbFired && p3>=0.5){ cbFired=true; if(userCb) userCb(); }
     } else {
-      var p=clamp((el-DUR_RING-DUR_KAWOOSH-DUR_STABLE)/DUR_VIDEO,0,1);
-      if (!vidShown){ vidShown=true; showVid(); }
-      if (p>0.92){
-        var fp=(p-0.92)/0.08;
-        ctx.fillStyle='rgba(200,240,255,'+(fp*fp)+')';
+      var pv=clamp((el-DUR_RING-DUR_KAWOOSH-DUR_STABLE)/DUR_VIDEO,0,1);
+      if(!vidShown){ vidShown=true; showVid(); }
+      if(pv>0.92){
+        var fp=(pv-0.92)/0.08;
+        ctx.fillStyle='rgba(220,240,255,'+(fp*fp)+')';
         ctx.fillRect(0,0,W,H);
       }
-      if (p>=1){ finish(); return; }
+      if(pv>=1){ finish(); return; }
     }
-
-    vortexAngle+=0.022;
+    vortexAngle+=0.016;
     raf=requestAnimationFrame(tick);
   }
 
-  /* ══════════════════════════════
-     ANNEAU 39 CHEVRONS
-  ══════════════════════════════ */
-  function drawRing(cx,cy,R,litRatio,glow){
-    var rIn=R*0.82, rOut=R;
-    ctx.beginPath();ctx.arc(cx,cy,rOut,0,TAU,false);
-    ctx.arc(cx,cy,rIn,0,TAU,true);
-    ctx.fillStyle='#0d0d28'; ctx.fill();
-    ctx.beginPath();ctx.arc(cx,cy,rOut,0,TAU);
-    ctx.strokeStyle='rgba(0,180,220,0.5)';ctx.lineWidth=1.5;ctx.stroke();
-    ctx.beginPath();ctx.arc(cx,cy,rIn,0,TAU);
-    ctx.strokeStyle='rgba(0,140,200,0.3)';ctx.lineWidth=1;ctx.stroke();
-    var nLit=Math.floor(litRatio*N_CH);
-    for(var i=0;i<N_CH;i++)
-      drawChevron(cx,cy,rIn,rOut,(i/N_CH)*TAU-TAU/4,i<nLit,glow);
+  /* ══════════════════════════════════════════
+     PHASE 1 — L'anneau d'Atlantis s'éveille
+     Ambiance sous-marine / cristalline
+  ══════════════════════════════════════════ */
+  function phase1(cx,cy,R,p,W,H){
+    var ep=easeOut(p);
+
+    /* Fond océanique très sombre */
+    ctx.fillStyle='rgba(0,2,12,'+clamp(ep*0.97,0,0.97)+')';
+    ctx.fillRect(0,0,W,H);
+    bgStars(W,H,ep*0.25);
+
+    /* Lueur sous-marine bleutée */
+    var hal=rGrad(cx,cy,R*0.3,R*3);
+    if(hal){
+      hal.addColorStop(0,'rgba(20,80,180,'+ep*0.08+')');
+      hal.addColorStop(0.5,'rgba(0,40,120,'+ep*0.05+')');
+      hal.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=hal; ctx.fillRect(0,0,W,H);
+    }
+
+    /* L'anneau triangulaire d'Atlantis */
+    drawAtlantisRing(cx,cy,R,p,0);
+
+    /* Particules cristallines flottantes */
+    if(p>0.2){
+      var cp=(p-0.2)/0.8;
+      drawCrystalParticles(cx,cy,R,cp);
+    }
   }
 
-  function drawChevron(cx,cy,rIn,rOut,angle,lit,glow){
-    var w=TAU/N_CH*0.52, a0=angle-w/2, a1=angle+w/2;
+  /* ══════════════════════════════════════════
+     PHASE 2 — Kawoosh Atlantis
+     Plus blanc/argenté, moins explosif, plus fluide
+  ══════════════════════════════════════════ */
+  function phase2(cx,cy,R,p,W,H){
+    var rIn=R*0.78;
+    ctx.fillStyle='rgba(0,2,12,0.96)'; ctx.fillRect(0,0,W,H);
+    bgStars(W,H,clamp(1-p*2,0,1)*0.2);
+    drawAtlantisRing(cx,cy,R,1,p*0.6);
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx,cy,rIn,0,TAU); ctx.clip();
+    ctx.fillStyle='#000208'; ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+
+    if(p<0.30){
+      /* Explosion initiale — blanc argenté */
+      var pb=p/0.30, epb=easeOut5(pb);
+
+      /* Flash central blanc-bleu */
+      var fl=rGrad(cx,cy,0,rIn*epb*0.9);
+      if(fl){
+        fl.addColorStop(0,'rgba(255,255,255,'+(1-pb*0.6)+')');
+        fl.addColorStop(0.15,'rgba(200,230,255,'+(0.8-pb*0.4)+')');
+        fl.addColorStop(0.4,'rgba(80,160,255,'+(0.5-pb*0.2)+')');
+        fl.addColorStop(0.75,'rgba(0,60,180,'+(0.25-pb*0.1)+')');
+        fl.addColorStop(1,'rgba(0,10,50,0)');
+        ctx.fillStyle=fl; ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+      }
+
+      /* Vague argentée translucide */
+      var waveR=rIn*epb*0.92;
+      for(var w=0;w<12;w++){
+        var wr=waveR*(1-w*0.02); if(wr<1) continue;
+        var wa=clamp((1-w/12)*1.3,0,1)*(1-pb*0.15);
+        ctx.beginPath(); ctx.arc(cx,cy,wr,0,TAU);
+        /* Couleur : blanc → bleu-argent */
+        var wc=Math.round(lerp(255,180,w/12));
+        ctx.strokeStyle='rgba('+wc+','+wc+',255,'+wa+')';
+        ctx.lineWidth=Math.max(0.5,(12-w)*4.5*(1-pb*0.35));
+        ctx.shadowColor='rgba(180,200,255,0.9)'; ctx.shadowBlur=22*(1-w/12);
+        ctx.stroke();
+      }
+
+      /* Éclats cristallins éjectés */
+      for(var i=0;i<20;i++){
+        var ea=(i/20)*TAU;
+        var er=epb*rIn*(0.5+0.5*Math.abs(Math.sin(i*0.8+1.2)));
+        var ex=cx+Math.cos(ea)*er, ey=cy+Math.sin(ea)*er;
+        ctx.save();
+        ctx.translate(ex,ey); ctx.rotate(ea+vortexAngle);
+        ctx.fillStyle='rgba(200,220,255,'+(wa*0.9)+')';
+        ctx.shadowColor='#aaccff'; ctx.shadowBlur=10;
+        /* Forme cristal : losange */
+        var cs=2+epb*4;
+        ctx.beginPath(); ctx.moveTo(0,-cs); ctx.lineTo(cs*0.4,0); ctx.lineTo(0,cs); ctx.lineTo(-cs*0.4,0); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+
+    } else {
+      /* Vortex Atlantis en formation — spirale blanche/argentée */
+      var pc=(p-0.30)/0.70, epc=easeOut(pc);
+      drawAtlantisVortex(cx,cy,rIn,pc,epc);
+
+      /* Halo résiduel */
+      if(pc<0.5){
+        var hl=rGrad(cx,cy,0,rIn*(0.5+pc*0.4));
+        if(hl){
+          hl.addColorStop(0,'rgba(220,235,255,'+(0.35-pc*0.3)+')');
+          hl.addColorStop(0.5,'rgba(80,150,255,'+(0.2-pc*0.15)+')');
+          hl.addColorStop(1,'rgba(0,0,80,0)');
+          ctx.fillStyle=hl; ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+        }
+      }
+    }
+
+    ctx.shadowBlur=0;
+    ctx.restore();
+
+    /* Lumière projetée — reflet dans l'eau */
+    if(p>0.25){
+      var lp2=(p-0.25)/0.75;
+      var lg=lGrad(cx,H,cx,H+rIn*0.8);
+      if(lg){
+        lg.addColorStop(0,'rgba(100,160,255,'+(lp2*0.20)+')');
+        lg.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=lg;
+        ctx.beginPath(); ctx.ellipse(cx,H,rIn*0.65*lp2,rIn*0.12*lp2,0,0,TAU); ctx.fill();
+      }
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     PHASE 3 — Vortex stable Atlantis
+  ══════════════════════════════════════════ */
+  function phase3(cx,cy,R,p,W,H){
+    var rIn=R*0.78;
+    ctx.fillStyle='rgba(0,2,12,0.96)'; ctx.fillRect(0,0,W,H);
+    drawAtlantisRing(cx,cy,R,1,0.6+p*0.4);
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx,cy,rIn,0,TAU); ctx.clip();
+    ctx.fillStyle='#000208'; ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+    drawAtlantisVortex(cx,cy,rIn,1,1);
+
+    /* Halo central brillant */
+    var gc=rGrad(cx,cy,0,rIn*0.55);
+    if(gc){
+      gc.addColorStop(0,'rgba(220,240,255,0.45)');
+      gc.addColorStop(0.35,'rgba(100,180,255,0.22)');
+      gc.addColorStop(1,'rgba(0,0,80,0)');
+      ctx.fillStyle=gc; ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
+    }
+    ctx.restore();
+
+    /* Reflet eau */
+    var lg=lGrad(cx,H,cx,H+rIn*0.7);
+    if(lg){
+      lg.addColorStop(0,'rgba(100,160,255,0.22)');
+      lg.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=lg;
+      ctx.beginPath(); ctx.ellipse(cx,H,rIn*0.60,rIn*0.12,0,0,TAU); ctx.fill();
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     ANNEAU D'ATLANTIS
+     Caractéristiques :
+     - Forme polygonale (triangle arrondi à 36 côtés)
+     - Couleur cristal bleu-blanc métallique
+     - 36 segments lumineux (pas de chevrons pointus)
+     - Symboles ancients (langue des Anciens)
+     - Bord extérieur avec détails géométriques
+  ══════════════════════════════════════════ */
+  function drawAtlantisRing(cx,cy,R,litRatio,glow){
+    var rIn=R*0.78, rOut=R, rMid=(rIn+rOut)/2;
+    var N=36; /* 36 segments — différent de SG-1 */
+
+    /* ── Corps de l'anneau — métal cristallin ── */
+    var metal=rGrad(cx,cy,rIn,rOut);
+    if(metal){
+      metal.addColorStop(0,  'rgba(20,30,55,1)');
+      metal.addColorStop(0.25,'rgba(15,25,48,1)');
+      metal.addColorStop(0.6, 'rgba(10,18,38,1)');
+      metal.addColorStop(1,  'rgba(8,12,28,1)');
+    }
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx,cy,rOut,a0,a1); ctx.arc(cx,cy,rIn,a1,a0,true); ctx.closePath();
-    if(lit){ctx.fillStyle='#00ddff';ctx.shadowColor='#00ffee';ctx.shadowBlur=12+glow*20;}
-    else{ctx.fillStyle='#181830';}
+    ctx.arc(cx,cy,rOut+3,0,TAU,false);
+    ctx.arc(cx,cy,rIn-2,0,TAU,true);
+    if(metal) ctx.fillStyle=metal; else ctx.fillStyle='#0f1830';
     ctx.fill();
+
+    /* Bords métalliques */
+    ctx.beginPath(); ctx.arc(cx,cy,rOut+2,0,TAU);
+    ctx.strokeStyle='rgba(80,120,200,0.7)'; ctx.lineWidth=2.5; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,rOut-2,0,TAU);
+    ctx.strokeStyle='rgba(60,90,160,0.4)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,rIn+1,0,TAU);
+    ctx.strokeStyle='rgba(40,70,140,0.5)'; ctx.lineWidth=1.5; ctx.stroke();
+
+    /* Ligne de détail centrale */
+    ctx.beginPath(); ctx.arc(cx,cy,rMid,0,TAU);
+    ctx.strokeStyle='rgba(30,50,100,0.35)'; ctx.lineWidth=1; ctx.stroke();
+
+    ctx.restore();
+
+    /* ── 36 Segments lumineux ── */
+    var nLit=Math.floor(litRatio*N);
+    for(var i=0;i<N;i++){
+      var angle=(i/N)*TAU - TAU/4;
+      drawAtlantisSegment(cx,cy,rIn,rOut,angle,i<nLit,glow,i,N);
+    }
+
+    /* ── Détails géométriques extérieurs (look Anciens) ── */
+    drawAncientDetails(cx,cy,rOut,glow);
+
+    /* Lueur intérieure */
+    if(litRatio>0){
+      ctx.beginPath(); ctx.arc(cx,cy,rIn+1,0,TAU);
+      ctx.strokeStyle='rgba(100,180,255,'+(litRatio*0.55)+')';
+      ctx.lineWidth=2;
+      ctx.shadowColor='rgba(80,160,255,0.8)'; ctx.shadowBlur=litRatio*18;
+      ctx.stroke(); ctx.shadowBlur=0;
+    }
+  }
+
+  function drawAtlantisSegment(cx,cy,rIn,rOut,angle,lit,glow,idx,N){
+    var gap=0.04; /* espace entre segments */
+    var w=(TAU/N)-gap;
+    var a0=angle-w/2, a1=angle+w/2;
+    var rInner=rIn+(rOut-rIn)*0.15;
+    var rOuter=rOut-(rOut-rIn)*0.10;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx,cy,rOuter,a0,a1);
+    ctx.arc(cx,cy,rInner,a1,a0,true);
+    ctx.closePath();
+
     if(lit){
-      ctx.beginPath();
-      ctx.moveTo(cx+Math.cos(angle)*(rOut+7),cy+Math.sin(angle)*(rOut+7));
-      ctx.lineTo(cx+Math.cos(a0)*(rOut-2),cy+Math.sin(a0)*(rOut-2));
-      ctx.lineTo(cx+Math.cos(a1)*(rOut-2),cy+Math.sin(a1)*(rOut-2));
-      ctx.closePath();
-      ctx.fillStyle='#00ffee';ctx.shadowColor='#00ffee';ctx.shadowBlur=18+glow*25;ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  /* ══════════════════════════════
-     KAWOOSH
-  ══════════════════════════════ */
-  function drawKawoosh(cx,cy,R,p){
-    var ep=easeOut(p), rIn=R*0.82, wf=ep*rIn*0.92;
-    ctx.save();
-    ctx.beginPath();ctx.arc(cx,cy,rIn*0.98,0,TAU);ctx.clip();
-    ctx.fillStyle='#000510';ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
-    for(var w=0;w<8;w++){
-      var wr=wf*(1-w*0.03); if(wr<=0) continue;
-      var al=clamp((1-w/8)*1.2,0,1)*(1-p*0.3);
-      ctx.beginPath();ctx.arc(cx,cy,wr,0,TAU);
-      ctx.strokeStyle='rgba('+Math.round(lerp(100,220,w/8))+','+Math.round(lerp(180,255,w/8))+',255,'+al+')';
-      ctx.lineWidth=Math.max(1,(8-w)*4*(1-p*0.5));
-      ctx.shadowColor='rgba(0,200,255,0.7)';ctx.shadowBlur=16*(1-w/8);ctx.stroke();
-    }
-    if(p>0.3) drawSpiral(cx,cy,rIn*0.95,clamp((p-0.3)/0.7,0,1));
-    var gc=rGrad(cx,cy,0,wf);
-    if(gc){
-      gc.addColorStop(0,'rgba(200,240,255,'+(0.55-p*0.25)+')');
-      gc.addColorStop(0.5,'rgba(0,160,255,'+(0.3-p*0.1)+')');
-      gc.addColorStop(1,'rgba(0,0,50,0)');
-      ctx.fillStyle=gc;ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
-    }
-    ctx.restore();
-  }
-
-  /* ══════════════════════════════
-     VORTEX STABLE
-  ══════════════════════════════ */
-  function drawVortex(cx,cy,R){
-    var rIn=R*0.82;
-    ctx.save();
-    ctx.beginPath();ctx.arc(cx,cy,rIn*0.98,0,TAU);ctx.clip();
-    ctx.fillStyle='#000510';ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
-    drawSpiral(cx,cy,rIn*0.95,1);
-    var gc=rGrad(cx,cy,0,rIn*0.75);
-    if(gc){
-      gc.addColorStop(0,'rgba(180,230,255,0.5)');
-      gc.addColorStop(0.4,'rgba(0,150,255,0.25)');
-      gc.addColorStop(1,'rgba(0,0,40,0)');
-      ctx.fillStyle=gc;ctx.fillRect(cx-rIn,cy-rIn,rIn*2,rIn*2);
-    }
-    ctx.restore();
-  }
-
-  function drawSpiral(cx,cy,maxR,str){
-    for(var arm=0;arm<3;arm++){
-      ctx.beginPath();
-      for(var i=0;i<180;i++){
-        var f=i/180,a=f*TAU*2.5+vortexAngle+(arm/3)*TAU,r=f*maxR*str;
-        if(i===0) ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
-        else       ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+      /* Couleur Atlantis : bleu-blanc lumineux cristallin */
+      /* Variation selon position : certains plus bleus, certains plus blancs */
+      var hue=idx%3;
+      var segG=ctx.createLinearGradient(
+        cx+Math.cos(angle)*rInner, cy+Math.sin(angle)*rInner,
+        cx+Math.cos(angle)*rOuter, cy+Math.sin(angle)*rOuter
+      );
+      if(hue===0){
+        segG.addColorStop(0,'rgba(150,200,255,0.7)');
+        segG.addColorStop(0.5,'rgba(80,160,255,0.9)');
+        segG.addColorStop(1,'rgba(40,120,230,0.8)');
+      } else if(hue===1){
+        segG.addColorStop(0,'rgba(200,220,255,0.75)');
+        segG.addColorStop(0.5,'rgba(140,190,255,0.9)');
+        segG.addColorStop(1,'rgba(80,150,240,0.8)');
+      } else {
+        segG.addColorStop(0,'rgba(220,235,255,0.8)');
+        segG.addColorStop(0.5,'rgba(180,210,255,0.95)');
+        segG.addColorStop(1,'rgba(120,175,255,0.85)');
       }
-      ctx.strokeStyle=arm===0?'rgba(0,200,255,0.55)':arm===1?'rgba(100,220,255,0.40)':'rgba(200,240,255,0.28)';
-      ctx.lineWidth=arm===0?3:arm===1?2:1.2;
-      ctx.shadowColor='rgba(0,180,255,0.6)';ctx.shadowBlur=14;ctx.stroke();
+      ctx.fillStyle=segG;
+      ctx.shadowColor='rgba(100,180,255,0.9)';
+      ctx.shadowBlur=10+glow*18;
+    } else {
+      ctx.fillStyle='rgba(25,35,65,0.88)';
+    }
+    ctx.fill();
+
+    /* Contour */
+    ctx.beginPath();
+    ctx.arc(cx,cy,rOuter,a0,a1);
+    ctx.arc(cx,cy,rInner,a1,a0,true);
+    ctx.closePath();
+    ctx.strokeStyle=lit?'rgba(160,210,255,0.7)':'rgba(40,55,95,0.6)';
+    ctx.lineWidth=lit?1.2:0.7;
+    if(lit){ ctx.shadowColor='rgba(120,190,255,0.6)'; ctx.shadowBlur=5; }
+    ctx.stroke();
+
+    /* Symbole Ancien dans le segment */
+    var smx=cx+Math.cos(angle)*(rInner+(rOuter-rInner)*0.5);
+    var smy=cy+Math.sin(angle)*(rInner+(rOuter-rInner)*0.5);
+    var ss=Math.max(1.5,(rOuter-rInner)*0.18);
+
+    ctx.save();
+    ctx.translate(smx,smy); ctx.rotate(angle+Math.PI/2);
+    ctx.fillStyle=lit?'rgba(210,230,255,0.8)':'rgba(40,55,90,0.5)';
+    if(lit){ ctx.shadowColor='rgba(180,220,255,0.9)'; ctx.shadowBlur=5; }
+
+    /* Symboles des Anciens — géométrie distinctive */
+    var sym=idx%9;
+    var s=ss;
+    if(sym===0){
+      /* Cercle */
+      ctx.beginPath(); ctx.arc(0,0,s*0.7,0,TAU);
+      ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=s*0.25; ctx.stroke();
+    } else if(sym===1){
+      /* Triangle vers le bas */
+      ctx.beginPath(); ctx.moveTo(0,s); ctx.lineTo(s*0.8,-s*0.5); ctx.lineTo(-s*0.8,-s*0.5); ctx.closePath(); ctx.fill();
+    } else if(sym===2){
+      /* Losange */
+      ctx.beginPath(); ctx.moveTo(0,-s); ctx.lineTo(s*0.55,0); ctx.lineTo(0,s); ctx.lineTo(-s*0.55,0); ctx.closePath(); ctx.fill();
+    } else if(sym===3){
+      /* Étoile à 4 branches */
+      ctx.fillRect(-s*0.22,-s,s*0.44,s*2); ctx.fillRect(-s,-s*0.22,s*2,s*0.44);
+    } else if(sym===4){
+      /* Spirale simple */
+      ctx.beginPath(); ctx.arc(0,0,s*0.65,0,Math.PI*1.5); ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=s*0.22; ctx.stroke();
+    } else if(sym===5){
+      /* Arc */
+      ctx.beginPath(); ctx.arc(0,0,s*0.7,-Math.PI*0.7,Math.PI*0.7); ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=s*0.28; ctx.stroke();
+    } else if(sym===6){
+      /* Hexagone */
+      ctx.beginPath();
+      for(var h=0;h<6;h++){
+        var ha=(h/6)*TAU;
+        if(h===0) ctx.moveTo(Math.cos(ha)*s*0.65,Math.sin(ha)*s*0.65);
+        else ctx.lineTo(Math.cos(ha)*s*0.65,Math.sin(ha)*s*0.65);
+      }
+      ctx.closePath(); ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=s*0.2; ctx.stroke();
+    } else if(sym===7){
+      /* Double ligne */
+      ctx.fillRect(-s*0.15,-s,s*0.3,s*2); ctx.fillRect(-s,-s*0.15,s*2,s*0.3);
+    } else {
+      /* Point central avec cercle */
+      ctx.beginPath(); ctx.arc(0,0,s*0.3,0,TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(0,0,s*0.7,0,TAU); ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=s*0.18; ctx.stroke();
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
+  /* Détails géométriques extérieurs (style Ancien) */
+  function drawAncientDetails(cx,cy,rOut,glow){
+    if(glow<0.1) return;
+    var i, angle, dx, dy, ds;
+    /* 12 petits triangles pointant vers l'extérieur */
+    for(i=0;i<12;i++){
+      angle=(i/12)*TAU;
+      dx=cx+Math.cos(angle)*(rOut+6);
+      dy=cy+Math.sin(angle)*(rOut+6);
+      ds=Math.max(1.5,3+glow*4);
+      ctx.save();
+      ctx.translate(dx,dy); ctx.rotate(angle+Math.PI/2);
+      ctx.beginPath();
+      ctx.moveTo(0,-ds*1.5); ctx.lineTo(ds*0.7,ds); ctx.lineTo(-ds*0.7,ds); ctx.closePath();
+      ctx.fillStyle='rgba(120,180,255,'+(glow*0.7)+')';
+      ctx.shadowColor='rgba(100,180,255,0.8)'; ctx.shadowBlur=glow*10;
+      ctx.fill();
+      ctx.restore();
     }
     ctx.shadowBlur=0;
   }
 
+  /* Particules cristallines flottantes */
+  function drawCrystalParticles(cx,cy,R,p){
+    for(var i=0;i<20;i++){
+      var angle=(i/20)*TAU + vortexAngle*0.5 + i*0.3;
+      var dist=R*(0.5+0.6*((i*0.37)%1));
+      var px=cx+Math.cos(angle)*dist;
+      var py=cy+Math.sin(angle)*dist;
+      var ps=0.5+p*2*(0.4+0.6*((i*0.57)%1));
+      var pa=p*(0.3+0.4*((i*0.43)%1));
+      ctx.save();
+      ctx.translate(px,py); ctx.rotate(angle+vortexAngle);
+      ctx.fillStyle='rgba(180,210,255,'+pa+')';
+      ctx.shadowColor='rgba(150,200,255,0.7)'; ctx.shadowBlur=8;
+      /* Losange cristallin */
+      ctx.beginPath();
+      ctx.moveTo(0,-ps); ctx.lineTo(ps*0.4,0); ctx.lineTo(0,ps); ctx.lineTo(-ps*0.4,0);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    ctx.shadowBlur=0;
+  }
+
+  /* ══════════════════════════════════════════
+     VORTEX ATLANTIS
+     Plus translucide, argenté, "eau"
+  ══════════════════════════════════════════ */
+  function drawAtlantisVortex(cx,cy,maxR,strength,ep){
+    var nArms=4, nPts=200, i, arm;
+
+    for(arm=0;arm<nArms;arm++){
+      var off=(arm/nArms)*TAU;
+      ctx.beginPath();
+      for(i=0;i<nPts;i++){
+        var f=i/nPts;
+        var a=f*TAU*2.5 + vortexAngle*1.1 + off;
+        var r=f*maxR*strength;
+        var px=cx+Math.cos(a)*r, py=cy+Math.sin(a)*r;
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      /* Atlantis : bleu-blanc argenté très translucide */
+      var alpha=arm===0?0.55:arm===1?0.40:arm===2?0.28:0.18;
+      if(arm===0){
+        ctx.strokeStyle='rgba(180,215,255,'+alpha+')';
+        ctx.lineWidth=3;
+      } else if(arm===1){
+        ctx.strokeStyle='rgba(140,190,255,'+alpha+')';
+        ctx.lineWidth=2;
+      } else if(arm===2){
+        ctx.strokeStyle='rgba(100,165,255,'+alpha+')';
+        ctx.lineWidth=1.5;
+      } else {
+        ctx.strokeStyle='rgba(200,225,255,'+alpha+')';
+        ctx.lineWidth=1;
+      }
+      ctx.shadowColor='rgba(160,200,255,0.6)'; ctx.shadowBlur=16+arm*4;
+      ctx.stroke();
+    }
+
+    /* Reflets brillants sur la spirale */
+    for(i=0;i<10;i++){
+      var ff=i/10;
+      var ra=ff*TAU*2.5+vortexAngle*1.1;
+      var rr=ff*maxR*strength;
+      if(rr<2) continue;
+      ctx.beginPath(); ctx.arc(cx+Math.cos(ra)*rr, cy+Math.sin(ra)*rr, 1+ff*2.5,0,TAU);
+      ctx.fillStyle='rgba(240,248,255,'+(0.8-ff*0.5)+')';
+      ctx.shadowColor='#fff'; ctx.shadowBlur=8;
+      ctx.fill();
+    }
+    ctx.shadowBlur=0;
+  }
+
+  /* Étoiles de fond */
   function bgStars(W,H,alpha){
     if(alpha<0.02) return;
-    if(!BST){BST=[];var s=54321;
+    if(!BST){ BST=[]; var s=12345;
       function rng(){s=(s*1664525+1013904223)>>>0;return s/4294967295;}
-      for(var i=0;i<180;i++) BST.push({x:rng(),y:rng(),r:0.3+rng()*1.3,a:0.2+rng()*0.8});}
+      for(var i=0;i<200;i++) BST.push({x:rng(),y:rng(),r:0.3+rng()*1.2,a:0.15+rng()*0.7}); }
     for(var i=0;i<BST.length;i++){
-      ctx.beginPath();ctx.arc(BST[i].x*W,BST[i].y*H,BST[i].r,0,TAU);
-      ctx.fillStyle='rgba(200,225,255,'+(BST[i].a*alpha)+')';ctx.fill();
+      ctx.beginPath(); ctx.arc(BST[i].x*W,BST[i].y*H,BST[i].r,0,TAU);
+      ctx.fillStyle='rgba(200,220,255,'+(BST[i].a*alpha)+')'; ctx.fill();
     }
   }
 
@@ -2844,13 +3198,14 @@ loadAll();
     sg.style.display='none';
     ctx.clearRect(0,0,sg.width,sg.height);
     hideVid();
-    if(!cbFired && userCb){cbFired=true;userCb();}
+    if(!cbFired && userCb){ cbFired=true; userCb(); }
     raf=null;
   }
 
   window.addEventListener('resize',resize);
   resize();
 })();
+
 </script>
 
 </body>
