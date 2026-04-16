@@ -677,8 +677,7 @@ body{
    COLLECTION VIEW
 ═══════════════════════════════════════════════════ */
 #collView{display:none;min-height:100vh;}
-#collView.entering{animation:coll-in .5s cubic-bezier(.2,.8,.3,1) both;}
-@keyframes coll-in{0%{opacity:0;transform:translateY(28px)}100%{opacity:1;transform:translateY(0)}}
+
 
 /* Custom collection background overlay */
 #collBgImg{
@@ -1482,13 +1481,16 @@ to   { background-position: 0 100vh; }
 //  Depot : GyromiteFr/ma-collection
 //  Token stocke dans localStorage (jamais dans le code)
 // ══════════════════════════════════════════
-const GH_OWNER = 'GyromiteFr';
-const GH_REPO  = 'ma-collection';
-const GH_FILE  = 'oasis-collection.json';
-const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+const FB_URL = 'https://collection-reginald-default-rtdb.europe-west1.firebasedatabase.app';
+const FB_KEY = 'AIzaSyArrquswrJZ1EF_DHbmezt2sf1l45RiaYA';
+const FB_USER_KEY = 'oasis_fb_uid';
 
-function ghToken(){ return localStorage.getItem('oasis_gh_token')||''; }
-function ghSetToken(t){ localStorage.setItem('oasis_gh_token', t.trim()); }
+function fbUid(){
+  let uid = localStorage.getItem(FB_USER_KEY);
+  if(!uid){ uid='user_'+Math.random().toString(36).slice(2,10); localStorage.setItem(FB_USER_KEY,uid); }
+  return uid;
+}
+function fbApiUrl(){ return FB_URL+'/collections/'+fbUid()+'/data.json?key='+FB_KEY; }
 
 // ══════════════════════════════════════════
 //  DEFAULT UNIVERSES (can be extended)
@@ -1574,7 +1576,7 @@ applyThemeDash();
 // ══════════════════════════════════════════
 //  STATE & PERSISTENCE
 // ══════════════════════════════════════════
-// GitHub API configurée via GH_API ci-dessus
+// Firebase — sync automatique
 let ALLDB={}, curId=null, DB=null;
 let editId=null,editSecId=null,editUnivId=null;
 let modPhotos=[]; // array of base64 strings
@@ -1591,162 +1593,88 @@ function showSave(msg,col){
   if(col==='ok'||col==='err')el._h=setTimeout(()=>el.style.opacity='0',3500);
 }
 
-// ── Chargement : GitHub en priorite, fallback localStorage
+// ── Chargement : Firebase en priorité, fallback localStorage
 async function loadAll(){
-  // Sauvegarde locale immédiate (toujours)
+  // Fallback local immédiat
   try{
     const l=localStorage.getItem('oasis_hub');
     if(l) ALLDB=JSON.parse(l);
     else   ALLDB=buildDefault();
   }catch{ ALLDB=buildDefault(); }
 
-  const tok=ghToken();
-  if(!tok){
-    // Pas de token — afficher panneau de config au 1er lancement
-    renderDash();
-    showSave('🔑 Entrez votre token GitHub pour la sync cloud','err');
-    // Ouvrir auto le panneau de config si jamais configuré
-    if(!localStorage.getItem('oasis_gh_seen')) openGhPanel();
-    return;
-  }
-
-  // Charger depuis GitHub
-  showSave('⏳ Chargement depuis GitHub…','load');
+  showSave('⏳ Chargement depuis Firebase…','load');
   try{
-    const r=await fetch(GH_API,{
-      headers:{
-        'Authorization':'token '+tok,
-        'Accept':'application/vnd.github+json'
+    const r=await fetch(fbApiUrl());
+    if(r.ok){
+      const data=await r.json();
+      if(data&&data.__univs){
+        ALLDB=data;
+        try{localStorage.setItem('oasis_hub',JSON.stringify(ALLDB));}catch{}
+        showSave('✔ Collection chargée depuis Firebase ☁️','ok');
+      } else {
+        showSave('☁️ Nouveau fichier cloud — prêt','ok');
       }
-    });
-    if(r.status===404){
-      // Fichier n'existe pas encore — on va le créer à la prochaine save
-      showSave('☁️ Nouveau fichier cloud — prêt','ok');
-    } else if(r.ok){
-      const j=await r.json();
-      const decoded=JSON.parse(atob(j.content.replace(/\n/g,'')));
-      if(decoded&&decoded.__univs) ALLDB=decoded;
-      // Stocker aussi en local
-      try{localStorage.setItem('oasis_hub',JSON.stringify(ALLDB));}catch{}
-      showSave('✔ Collection chargée depuis GitHub ☁️','ok');
     } else {
       throw new Error('HTTP '+r.status);
     }
   }catch(e){
-    showSave('⚠ GitHub inaccessible — données locales','err');
-    console.warn('GitHub load error:',e);
+    showSave('⚠ Firebase inaccessible — données locales','err');
+    console.warn('Firebase load error:',e);
   }
   renderDash();
 }
 
-// ── Sauvegarde : localStorage + GitHub
+// ── Sauvegarde : localStorage + Firebase
 async function saveAll(){
   // 1. Toujours sauvegarder en local
   try{localStorage.setItem('oasis_hub',JSON.stringify(ALLDB));}catch{}
 
-  const tok=ghToken();
-  if(!tok) return; // pas de token = local seulement
-
-  // 2. Sauvegarder sur GitHub
-  showSave('💾 Sync GitHub…','load');
+  // 2. Sauvegarder sur Firebase
+  showSave('💾 Sync Firebase…','load');
   try{
-    const content=btoa(unescape(encodeURIComponent(JSON.stringify(ALLDB,null,2))));
-
-    // Récupérer le SHA du fichier existant (nécessaire pour le PUT)
-    let sha=null;
-    const get=await fetch(GH_API,{
-      headers:{'Authorization':'token '+tok,'Accept':'application/vnd.github+json'}
-    });
-    if(get.ok){ const gj=await get.json(); sha=gj.sha; }
-
-    // PUT pour créer ou mettre à jour
-    const body={
-      message:`[OASIS] Sync collection — ${new Date().toLocaleString('fr-FR')}`,
-      content,
-      ...(sha?{sha}:{})
-    };
-    const put=await fetch(GH_API,{
+    const r=await fetch(fbApiUrl(),{
       method:'PUT',
-      headers:{
-        'Authorization':'token '+tok,
-        'Accept':'application/vnd.github+json',
-        'Content-Type':'application/json'
-      },
-      body:JSON.stringify(body)
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(ALLDB)
     });
-    if(put.ok) showSave('✔ Sauvegardé sur GitHub ☁️','ok');
-    else throw new Error('PUT '+put.status);
+    if(r.ok) showSave('✔ Sauvegardé sur Firebase ☁️','ok');
+    else throw new Error('HTTP '+r.status);
   }catch(e){
-    showSave('⚠ Sauvegarde locale uniquement','err');
-    console.warn('GitHub save error:',e);
+    showSave('⚠ Sync Firebase active','err');
+    console.warn('Firebase save error:',e);
   }
 }
 
 function save(){clearTimeout(saveTimer);saveTimer=setTimeout(saveAll,1200);}
 
-/* ── Sauvegarde forcée GitHub (bouton 💾) ── */
+/* ── Sauvegarde forcée Firebase (bouton 💾) ── */
 async function forceSaveNow(){
   const btn = document.getElementById('btn-save-now');
   const st  = document.getElementById('save-now-status');
   if (!btn) return;
 
-  /* Vérifier que GitHub est configuré */
-  const tok  = localStorage.getItem('gh_token')||'';
-  const owner= localStorage.getItem('gh_owner')||GH_OWNER;
-  const repo = localStorage.getItem('gh_repo') ||GH_REPO;
-  const file = localStorage.getItem('gh_file') ||GH_FILE;
-
-  if (!tok) {
-    if(st){ st.textContent="⚠ Configurez votre token GitHub d'abord"; st.style.color='#ff8844'; }
-    setTimeout(()=>{ if(st) st.textContent=''; },4000);
-    openGhPanel();
-    return;
-  }
-
   btn.classList.add('saving');
   btn.textContent='⏳ Sauvegarde...';
-  if(st){ st.textContent='⏳ Envoi sur GitHub...'; st.style.color='#00e6ff'; }
+  if(st){ st.textContent='⏳ Envoi sur Firebase...'; st.style.color='#00e6ff'; }
 
   try {
-    /* 1. Récupérer le SHA actuel du fichier */
-    const headers = {
-      'Authorization':'token '+tok,
-      'Accept':'application/vnd.github.v3+json'
-    };
-    let sha = '';
-    try {
-      const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${file}`,{headers});
-      if(getRes.ok){ const getJson=await getRes.json(); sha=getJson.sha||''; }
-    } catch(e){}
-
-    /* 2. Encoder les données en base64 */
-    const json    = JSON.stringify(ALLDB, null, 2);
-    const b64     = btoa(unescape(encodeURIComponent(json)));
-    const now     = new Date().toLocaleString('fr-FR');
-
-    /* 3. PUT sur GitHub */
-    const body = {
-      message:`💾 Sauvegarde manuelle — ${now}`,
-      content: b64,
-      ...(sha ? {sha} : {})
-    };
-    const putRes  = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${file}`,{
-      method:'PUT', headers:{...headers,'Content-Type':'application/json'},
-      body:JSON.stringify(body)
+    const now = new Date().toLocaleString('fr-FR');
+    const r = await fetch(fbApiUrl(),{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(ALLDB)
     });
-
-    if(putRes.ok || putRes.status===200 || putRes.status===201){
+    if(r.ok){
       btn.classList.remove('saving'); btn.classList.add('saved');
       btn.textContent='✔ Sauvegardé !';
-      if(st){ st.textContent=`✔ Sauvegardé sur GitHub le ${now}`; st.style.color='#00ff88'; }
+      if(st){ st.textContent='✔ Sauvegardé sur Firebase le '+now; st.style.color='#00ff88'; }
       setTimeout(()=>{
         btn.classList.remove('saved');
         btn.textContent='💾 Sauvegarder';
         if(st) st.textContent='';
       },4000);
     } else {
-      const err = await putRes.json().catch(()=>({}));
-      throw new Error(err.message||putRes.status);
+      throw new Error('HTTP '+r.status);
     }
   } catch(e){
     btn.classList.remove('saving');
@@ -1979,33 +1907,29 @@ async function changeUnivLogo(evt,id){
 //  OPEN / CLOSE UNIVERSE
 // ══════════════════════════════════════════
 function openUniv(id){
-  // Lance le portail, puis ouvre la collection une fois terminé
-  playStargate(() => {
-    curId=id;
-    const u=getUniv(id);if(!u)return;
-    if(!ALLDB[id])ALLDB[id]={sections:[{id:'default',name:'Ma collection',color:u.c1}],figurines:[]};
-    DB=ALLDB[id];
-    applyTheme(u);
+  curId=id;
+  const u=getUniv(id);if(!u)return;
+  if(!ALLDB[id])ALLDB[id]={sections:[{id:'default',name:'Ma collection',color:u.c1}],figurines:[]};
+  DB=ALLDB[id];
+  applyTheme(u);
 
-    document.getElementById('cIcon').textContent=u.icon;
-    document.getElementById('cTitle').textContent=u.name;
+  document.getElementById('cIcon').textContent=u.icon;
+  document.getElementById('cTitle').textContent=u.name;
 
-    // Apply per-collection custom bg
-    const custBg=ALLDB.__collbgs&&ALLDB.__collbgs[id];
-    const ov=document.getElementById('collBgImg');
-    if(custBg){ov.style.backgroundImage=`url(${custBg})`;ov.classList.add('active');}
-    else{ov.style.backgroundImage='';ov.classList.remove('active');}
+  // Apply per-collection custom bg
+  const custBg=ALLDB.__collbgs&&ALLDB.__collbgs[id];
+  const ov=document.getElementById('collBgImg');
+  if(custBg){ov.style.backgroundImage=`url(${custBg})`;ov.classList.add('active');}
+  else{ov.style.backgroundImage='';ov.classList.remove('active');}
 
-    document.getElementById('dashboard').style.display='none';
-    const cv=document.getElementById('collView');
-    cv.style.display='block';
-    cv.classList.remove('entering');void cv.offsetWidth;cv.classList.add('entering');
+  document.getElementById('dashboard').style.display='none';
+  const cv=document.getElementById('collView');
+  cv.style.display='block';
 
-    curFilter='all';curTab='__all';
-    document.getElementById('searchInp').value='';
-    setFilter('all');renderTabs();renderGrid();
-    window.scrollTo({top:0,behavior:'smooth'});
-  });
+  curFilter='all';curTab='__all';
+  document.getElementById('searchInp').value='';
+  setFilter('all');renderTabs();renderGrid();
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function showDash(){
@@ -2487,86 +2411,22 @@ async function handleImgbbUpload(evt, mode, figId){
 }
 
 function openGhPanel(){
-  // Pré-remplir si token déjà présent
-  const tok=ghToken();
-  const inp=document.getElementById('gh-tok-inp');
-  if(inp) inp.value=tok?'••••••••••••••••••••••••••••••••••••••••':'';
-  document.getElementById('gh-st').style.display='none';
+  const uid = fbUid();
+  const disp = document.getElementById('fb-uid-display');
+  if(disp) disp.textContent = uid;
   document.getElementById('gh-panel').classList.add('open');
-  localStorage.setItem('oasis_gh_seen','1');
 }
 
 function closeGhPanel(){
   document.getElementById('gh-panel').classList.remove('open');
-  localStorage.setItem('oasis_gh_seen','1');
 }
 
 function updateGhFab(){
-  const tok=ghToken();
   const dot=document.getElementById('gh-fab-dot');
   const lbl=document.getElementById('gh-fab-lbl');
-  if(tok){
-    dot.classList.add('connected');
-    lbl.textContent='GitHub ✔';
-  } else {
-    dot.classList.remove('connected');
-    lbl.textContent='GitHub';
-  }
+  dot.classList.add('connected');
+  lbl.textContent='Firebase ✔';
 }
-
-async function testGhToken(){
-  const inp=document.getElementById('gh-tok-inp');
-  const st=document.getElementById('gh-st');
-  const rawVal=inp.value.trim();
-  // Si masqué (•••) utiliser le token stocké
-  const tok=rawVal.startsWith('•')?ghToken():rawVal;
-  if(!tok){
-    st.className='gh-status err';st.style.display='block';
-    st.textContent="⚠ Entrez votre token d'abord";return;
-  }
-  st.className='gh-status';st.style.display='block';st.textContent='⟳ Test en cours…';
-  try{
-    const r=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}`,{
-      headers:{'Authorization':'token '+tok,'Accept':'application/vnd.github+json'}
-    });
-    if(r.ok){
-      const j=await r.json();
-      st.className='gh-status ok';
-      st.textContent=`✔ Connecté ! Dépôt : ${j.full_name} (${j.visibility})`;
-    } else {
-      const j=await r.json();
-      st.className='gh-status err';
-      st.textContent=`✕ Erreur ${r.status} : ${j.message||'Token invalide ou accès refusé'}`;
-    }
-  }catch(e){
-    st.className='gh-status err';
-    st.textContent='✕ Erreur réseau : '+e.message;
-  }
-}
-
-function saveGhToken(){
-  const inp=document.getElementById('gh-tok-inp');
-  const st=document.getElementById('gh-st');
-  const rawVal=inp.value.trim();
-  if(!rawVal||rawVal.startsWith('•')){
-    // Token déjà stocké, juste fermer
-    closeGhPanel();updateGhFab();return;
-  }
-  if(!rawVal.startsWith('ghp_')&&!rawVal.startsWith('github_pat_')){
-    st.className='gh-status err';st.style.display='block';
-    st.textContent='⚠ Format invalide — le token doit commencer par ghp_';return;
-  }
-  ghSetToken(rawVal);
-  st.className='gh-status ok';st.style.display='block';
-  st.textContent='✔ Token sauvegardé dans votre navigateur !';
-  updateGhFab();
-  setTimeout(()=>{
-    closeGhPanel();
-    // Relancer le chargement avec le nouveau token
-    loadAll();
-  },1200);
-}
-
 
 // Init FAB état
 document.addEventListener("DOMContentLoaded",updateGhFab);
@@ -2577,43 +2437,32 @@ loadAll();
 <!-- ═════════════ PANNEAU CONFIG GITHUB ═════════════ -->
 <div id="gh-panel" onclick="if(event.target===this)closeGhPanel()">
   <div class="gh-box">
-    <div class="gh-title">⬡ Connexion GitHub</div>
+    <div class="gh-title">🔥 Sync Firebase</div>
     <div class="gh-sub">
-      Connectez votre collection à votre dépôt GitHub pour la synchroniser partout.<br>
-      Créez un token sur : <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a><br>
-      → Cochez uniquement <strong>repo</strong> · Expiration : No expiration
+      Votre collection est synchronisée automatiquement via Firebase sur tous vos appareils.<br>
+      Votre identifiant unique est généré automatiquement et stocké dans ce navigateur.
     </div>
-    <div class="gh-field">
-      <div class="gh-lbl">Votre Token GitHub (ghp_…)</div>
-      <input class="gh-inp" id="gh-tok-inp" type="password"
-        placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-        autocomplete="off">
-    </div>
-    <div class="gh-status" id="gh-st"></div>
-    <div class="gh-info">
-      🔒 Votre token est stocké uniquement dans ce navigateur (localStorage).<br>
-      Il n'apparaît jamais dans le code source ni sur GitHub.<br>
-      Dépôt cible : <strong>GyromiteFr/ma-collection</strong> → oasis-collection.json
+    <div class="gh-info" id="gh-st">
+      ✔ Firebase connecté — synchronisation automatique activée<br>
+      ID appareil : <strong id="fb-uid-display"></strong>
     </div>
     <div class="gh-field" style="margin-top:18px;border-top:1px solid rgba(0,200,255,.15);padding-top:16px;">
-      <div class="gh-lbl">🖼 Clé API ImgBB (upload photos depuis iPhone)</div>
+      <div class="gh-lbl">🖼 Clé API ImgBB (upload photos)</div>
       <div class="gh-sub" style="margin:4px 0 8px;">Gratuit sur <a href="https://api.imgbb.com/" target="_blank">api.imgbb.com</a> → Get API key</div>
       <input class="gh-inp" id="imgbb-key-inp" type="password" placeholder="Votre clé ImgBB..." autocomplete="off">
       <button class="gh-btn gh-btn-save" style="margin-top:8px;width:100%" onclick="saveImgbbKey()">✔ Sauvegarder clé ImgBB</button>
       <div id="imgbb-key-status" style="font-size:11px;color:#00e6ff;margin-top:6px;min-height:14px;"></div>
     </div>
     <div class="gh-actions">
-      <button class="gh-btn gh-btn-skip" onclick="closeGhPanel()">Plus tard</button>
-      <button class="gh-btn gh-btn-test" onclick="testGhToken()">⟳ Tester</button>
-      <button class="gh-btn gh-btn-save" onclick="saveGhToken()">✔ Connecter</button>
+      <button class="gh-btn gh-btn-skip" onclick="closeGhPanel()">Fermer</button>
     </div>
   </div>
 </div>
 
-<!-- Bouton flottant GitHub -->
+<!-- Bouton flottant Firebase -->
 <div id="gh-fab" onclick="openGhPanel()">
   <span class="gh-fab-dot" id="gh-fab-dot"></span>
-  <span id="gh-fab-lbl">GitHub</span>
+  <span id="gh-fab-lbl">Firebase</span>
 </div>
 
 <script>
