@@ -2414,7 +2414,19 @@ function openGhPanel(){
   const uid = fbUid();
   const disp = document.getElementById('fb-uid-display');
   if(disp) disp.textContent = uid;
+  const inp = document.getElementById('fb-uid-inp');
+  if(inp) inp.value = uid;
   document.getElementById('gh-panel').classList.add('open');
+}
+
+function applyFbUid(){
+  const inp = document.getElementById('fb-uid-inp');
+  const st  = document.getElementById('fb-uid-status');
+  const val = inp ? inp.value.trim() : '';
+  if(!val){ if(st) st.textContent='⚠ Entrez un ID valide'; return; }
+  localStorage.setItem('oasis_fb_uid', val);
+  if(st){ st.textContent='✔ ID appliqué — rechargement...'; st.style.color='#00ff88'; }
+  setTimeout(()=>{ closeGhPanel(); loadAll(); },1000);
 }
 
 function closeGhPanel(){
@@ -2445,6 +2457,13 @@ loadAll();
     <div class="gh-info" id="gh-st">
       ✔ Firebase connecté — synchronisation automatique activée<br>
       ID appareil : <strong id="fb-uid-display"></strong>
+    </div>
+    <div class="gh-field" style="margin-top:14px;">
+      <div class="gh-lbl">🔗 Synchroniser avec un autre appareil</div>
+      <div class="gh-sub" style="margin:4px 0 8px;">Entrez l'ID d'un autre appareil pour partager la même collection.</div>
+      <input class="gh-inp" id="fb-uid-inp" type="text" placeholder="ex: user_qldwh3gb" autocomplete="off">
+      <button class="gh-btn gh-btn-save" style="margin-top:8px;width:100%" onclick="applyFbUid()">✔ Utiliser cet ID</button>
+      <div id="fb-uid-status" style="font-size:11px;color:#00e6ff;margin-top:6px;min-height:14px;"></div>
     </div>
     <div class="gh-field" style="margin-top:18px;border-top:1px solid rgba(0,200,255,.15);padding-top:16px;">
       <div class="gh-lbl">🖼 Clé API ImgBB (upload photos)</div>
