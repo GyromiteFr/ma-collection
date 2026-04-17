@@ -1451,6 +1451,7 @@ to   { background-position: 0 100vh; }
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeSecMod()">Annuler</button>
+      <button class="btn-cancel" id="secDelBtn" style="color:#ff3366;border-color:#ff3366;display:none" onclick="deleteSec()">🗑 Supprimer</button>
       <button class="btn-save"   onclick="saveSec()">Enregistrer</button>
     </div>
   </div>
@@ -1992,6 +1993,7 @@ function renderTabs(){
     b.className='sec-tab'+(curTab===s.id?' on':'');
     b.innerHTML=`<span class="dot" style="background:${s.color}"></span>${s.name}<span style="opacity:.28;font-size:.58rem;margin-left:3px">${(DB.figurines||[]).filter(f=>f.secId===s.id).length}</span>`;
     b.onclick=()=>setTab(s.id,b);
+    b.ondblclick=e=>{e.preventDefault();openSecMod(s.id);};
     b.oncontextmenu=e=>{e.preventDefault();openSecMod(s.id);};
     t.insertBefore(b,add);
   });
@@ -2271,8 +2273,9 @@ function selColor(gridId,inputId,c){
 }
 function openSecMod(id){
   editSecId=id||null;
-  if(id){const s=(DB.sections||[]).find(x=>x.id===id);if(!s)return;document.getElementById('secModTitle').textContent='Modifier';document.getElementById('sNom').value=s.name;buildColorGrid('cgSec',s.color,'sColor');}
-  else{document.getElementById('secModTitle').textContent='Nouvelle section';document.getElementById('sNom').value='';buildColorGrid('cgSec',PALETTE[Math.floor(Math.random()*PALETTE.length)],'sColor');}
+  const delBtn=document.getElementById('secDelBtn');
+  if(id){const s=(DB.sections||[]).find(x=>x.id===id);if(!s)return;document.getElementById('secModTitle').textContent='Modifier';document.getElementById('sNom').value=s.name;buildColorGrid('cgSec',s.color,'sColor');if(delBtn)delBtn.style.display='';}
+  else{document.getElementById('secModTitle').textContent='Nouvelle section';document.getElementById('sNom').value='';buildColorGrid('cgSec',PALETTE[Math.floor(Math.random()*PALETTE.length)],'sColor');if(delBtn)delBtn.style.display='none';}
   document.getElementById('secMod').classList.add('open');
 }
 function closeSecMod(){document.getElementById('secMod').classList.remove('open');}
@@ -2282,6 +2285,18 @@ function saveSec(){
   if(!DB.sections)DB.sections=[];
   if(editSecId){const s=DB.sections.find(x=>x.id===editSecId);if(s){s.name=nom;s.color=color;}}
   else DB.sections.push({id:uid(),name:nom,color});
+  save();closeSecMod();renderTabs();renderGrid();
+}
+function deleteSec(){
+  if(!editSecId)return;
+  const s=(DB.sections||[]).find(x=>x.id===editSecId);
+  if(!s)return;
+  const count=(DB.figurines||[]).filter(f=>f.secId===editSecId).length;
+  const msg=count>0?`Supprimer "${s.name}" et ses ${count} figurine(s) ?`:`Supprimer la section "${s.name}" ?`;
+  if(!confirm(msg))return;
+  DB.sections=DB.sections.filter(x=>x.id!==editSecId);
+  DB.figurines=(DB.figurines||[]).filter(f=>f.secId!==editSecId);
+  if(curTab===editSecId)curTab='__all';
   save();closeSecMod();renderTabs();renderGrid();
 }
 
